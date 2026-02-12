@@ -42,6 +42,22 @@ class HomeScene extends Phaser.Scene {
                     { x: 19, y: 12, w: 4, h: 3 },
                     { x: 19, y: 3,  w: 4, h: 3 },  // awen-room ↔ outdoor
                     { x: 24, y: 8,  w: 2, h: 4 },  // outdoor ↔ bathroom (vertical)
+                ],
+                doors: [
+                    // 琴房 ↔ 阿文房间（上方走廊）
+                    { x: 9,  y: 4, w: 2, h: 1, type: 'horizontal' },
+                    // 琴房 ↔ 客厅（左侧走廊）
+                    { x: 5,  y: 9, w: 1, h: 2, type: 'vertical' },
+                    // 客厅 ↔ 厨房（中间走廊）
+                    { x: 9, y: 13, w: 2, h: 1, type: 'horizontal' },
+                    // 阿文房间 ↔ 厨房（右侧走廊）
+                    { x: 15, y: 9, w: 1, h: 2, type: 'vertical' },
+                    // 厨房 ↔ 卫生间
+                    { x: 20, y: 13, w: 2, h: 1, type: 'horizontal' },
+                    // 阿文房间 ↔ 外出
+                    { x: 20, y: 4, w: 2, h: 1, type: 'horizontal' },
+                    // 外出 ↔ 卫生间
+                    { x: 25, y: 9, w: 1, h: 2, type: 'vertical' }
                 ]
             },
             cozy: {
@@ -61,6 +77,22 @@ class HomeScene extends Phaser.Scene {
                     { x: 20, y: 13, w: 3, h: 3 },
                     { x: 20, y: 3,  w: 3, h: 3 },  // awen-room ↔ outdoor
                     { x: 24, y: 8,  w: 2, h: 4 },  // outdoor ↔ bathroom (vertical)
+                ],
+                doors: [
+                    // 琴房 ↔ 阿文房间
+                    { x: 10,  y: 4, w: 2, h: 1, type: 'horizontal' },
+                    // 琴房 ↔ 客厅
+                    { x: 5,  y: 11, w: 1, h: 2, type: 'vertical' },
+                    // 客厅 ↔ 厨房
+                    { x: 10, y: 14, w: 2, h: 1, type: 'horizontal' },
+                    // 阿文房间 ↔ 厨房
+                    { x: 16, y: 11, w: 1, h: 2, type: 'vertical' },
+                    // 厨房 ↔ 卫生间
+                    { x: 21, y: 14, w: 2, h: 1, type: 'horizontal' },
+                    // 阿文房间 ↔ 外出
+                    { x: 21, y: 4, w: 2, h: 1, type: 'horizontal' },
+                    // 外出 ↔ 卫生间
+                    { x: 25, y: 9, w: 1, h: 2, type: 'vertical' }
                 ]
             }
         };
@@ -68,6 +100,7 @@ class HomeScene extends Phaser.Scene {
         const preset = PRESETS[window.currentLayout || 'default'];
         this.roomDefs  = preset.rooms;
         this.corridors = preset.corridors;
+        this.doors     = preset.doors || [];  // 新增：加载门数据
 
         // ============================================
         // Draw background
@@ -90,29 +123,40 @@ class HomeScene extends Phaser.Scene {
             gfx.fillStyle(r.color, 1);
             gfx.fillRect(r.x * TS, r.y * TS, r.w * TS, r.h * TS);
 
-            // Floor pattern (subtle grid)
-            gfx.lineStyle(1, 0x886655, 0.10);
-            for (let ty = 0; ty < r.h; ty++) {
-                gfx.lineBetween(r.x * TS, (r.y + ty) * TS, (r.x + r.w) * TS, (r.y + ty) * TS);
-            }
-            for (let tx = 0; tx < r.w; tx++) {
-                gfx.lineBetween((r.x + tx) * TS, r.y * TS, (r.x + tx) * TS, (r.y + r.h) * TS);
-            }
-
-            // Wall border
-            gfx.lineStyle(2, 0xc8a090, 1);
-            gfx.strokeRect(r.x * TS, r.y * TS, r.w * TS, r.h * TS);
+            // Wall border (移除：改用新的墙壁渲染系统)
+            // gfx.lineStyle(2, 0xc8a090, 1);
+            // gfx.strokeRect(r.x * TS, r.y * TS, r.w * TS, r.h * TS);
 
             // Inner wall highlight
-            gfx.lineStyle(1, 0xd8b0a8, 0.5);
-            gfx.strokeRect(r.x * TS + 1, r.y * TS + 1, r.w * TS - 2, r.h * TS - 2);
+            // gfx.lineStyle(1, 0xd8b0a8, 0.5);
+            // gfx.strokeRect(r.x * TS + 1, r.y * TS + 1, r.w * TS - 2, r.h * TS - 2);
         }
 
-        // Draw corridors
+        // Draw corridors (Phase 3D: 添加踢脚线装饰)
         for (const c of this.corridors) {
+            // 地板
             gfx.fillStyle(0xd4c4a8, 1);
             gfx.fillRect(c.x * TS, c.y * TS, c.w * TS, c.h * TS);
+
+            // 踢脚线装饰
+            gfx.lineStyle(2, 0x8B7355, 0.3);
+            if (c.w > c.h) { // 水平走廊
+                gfx.lineBetween(c.x * TS, c.y * TS, (c.x + c.w) * TS, c.y * TS);
+                gfx.lineBetween(c.x * TS, (c.y + c.h) * TS, (c.x + c.w) * TS, (c.y + c.h) * TS);
+            } else { // 垂直走廊
+                gfx.lineBetween(c.x * TS, c.y * TS, c.x * TS, (c.y + c.h) * TS);
+                gfx.lineBetween((c.x + c.w) * TS, c.y * TS, (c.x + c.w) * TS, (c.y + c.h) * TS);
+            }
         }
+
+        // ============================================
+        // Walls and Doors (Phase 3C)
+        // ============================================
+        const wallGfx = this.add.graphics().setDepth(2);
+        this.drawWalls(wallGfx, TS);
+
+        const doorGfx = this.add.graphics().setDepth(3);
+        this.drawDoors(doorGfx, TS);
 
         // ============================================
         // Floor textures (LRK tileset, depth 1)
@@ -403,6 +447,19 @@ class HomeScene extends Phaser.Scene {
                 for (let x = c.x; x < c.x + c.w; x++) {
                     if (y >= 0 && y < H && x >= 0 && x < W) {
                         this.walkGrid[y][x] = 0;
+                    }
+                }
+            }
+        }
+
+        // Phase 3D: 确保门洞可走
+        if (this.doors) {
+            for (const door of this.doors) {
+                for (let y = door.y; y < door.y + door.h; y++) {
+                    for (let x = door.x; x < door.x + door.w; x++) {
+                        if (y >= 0 && y < H && x >= 0 && x < W) {
+                            this.walkGrid[y][x] = 0;
+                        }
                     }
                 }
             }
@@ -929,5 +986,96 @@ class HomeScene extends Phaser.Scene {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ furniture: this.furnitureData })
         });
+    }
+
+    // ============================================
+    // Phase 3C: 墙壁和门渲染方法
+    // ============================================
+
+    drawWalls(gfx, TS) {
+        const WALL_THICKNESS = 6;  // 墙壁厚度（像素）
+        const WALL_MAIN   = 0x8B7355;
+        const WALL_SHADOW = 0x6B5335;
+        const WALL_LIGHT  = 0x9B8365;
+
+        for (const [id, r] of Object.entries(this.roomDefs)) {
+            const rx = r.x * TS;
+            const ry = r.y * TS;
+            const rw = r.w * TS;
+            const rh = r.h * TS;
+
+            // 四面墙壁
+            this.drawWallSegment(gfx, rx, ry, rw, WALL_THICKNESS, 'top', id, TS);
+            this.drawWallSegment(gfx, rx, ry + rh - WALL_THICKNESS, rw, WALL_THICKNESS, 'bottom', id, TS);
+            this.drawWallSegment(gfx, rx, ry, WALL_THICKNESS, rh, 'left', id, TS);
+            this.drawWallSegment(gfx, rx + rw - WALL_THICKNESS, ry, WALL_THICKNESS, rh, 'right', id, TS);
+        }
+    }
+
+    drawWallSegment(gfx, x, y, w, h, side, roomId, TS) {
+        const WALL_MAIN   = 0x8B7355;
+        const WALL_SHADOW = 0x6B5335;
+        const WALL_LIGHT  = 0x9B8365;
+
+        // 检查该墙段是否有门
+        const doorsOnThisWall = this.doors.filter(door => {
+            const dx = door.x * TS, dy = door.y * TS;
+            const dw = door.w * TS, dh = door.h * TS;
+            return !(dx + dw < x || dx > x + w || dy + dh < y || dy > y + h);
+        });
+
+        // 绘制墙壁主体
+        gfx.fillStyle(WALL_MAIN, 1);
+        gfx.fillRect(x, y, w, h);
+
+        // 添加阴影和高光
+        gfx.fillStyle(WALL_SHADOW, 1);
+        if (w > h) { // 水平墙
+            gfx.fillRect(x, y + h - 2, w, 2);
+        } else { // 垂直墙
+            gfx.fillRect(x + w - 2, y, 2, h);
+        }
+
+        gfx.fillStyle(WALL_LIGHT, 1);
+        if (w > h) {
+            gfx.fillRect(x, y, w, 1);
+        } else {
+            gfx.fillRect(x, y, 1, h);
+        }
+    }
+
+    drawDoors(gfx, TS) {
+        const CORRIDOR_COLOR = 0xd4c4a8;
+        const DOOR_FRAME     = 0xF5E6D0;
+        const DOOR_WOOD      = 0xA07858;
+
+        for (const door of this.doors) {
+            const dx = door.x * TS;
+            const dy = door.y * TS;
+            const dw = door.w * TS;
+            const dh = door.h * TS;
+
+            // 1. 门洞（用走廊色填充，覆盖墙壁）
+            gfx.fillStyle(CORRIDOR_COLOR, 1);
+            gfx.fillRect(dx, dy, dw, dh);
+
+            // 2. 门框（深色边框）
+            gfx.lineStyle(2, 0x6B4D3B, 1);
+            gfx.strokeRect(dx, dy, dw, dh);
+
+            // 3. 半开门板
+            if (door.type === 'horizontal') {
+                gfx.fillStyle(DOOR_WOOD, 0.8);
+                gfx.fillRect(dx + 2, dy + 2, dw / 2 - 4, dh - 4);
+                // 门把手
+                gfx.fillStyle(0xFFD700, 1);
+                gfx.fillCircle(dx + dw / 2 - 6, dy + dh / 2, 2);
+            } else {
+                gfx.fillStyle(DOOR_WOOD, 0.8);
+                gfx.fillRect(dx + 2, dy + 2, dw - 4, dh / 2 - 4);
+                gfx.fillStyle(0xFFD700, 1);
+                gfx.fillCircle(dx + dw / 2, dy + dh / 2 - 6, 2);
+            }
+        }
     }
 }
