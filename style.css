@@ -1,0 +1,999 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+
+header {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 24px;
+}
+
+.time-status {
+    font-size: 14px;
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    padding: 20px;
+}
+
+/* 地图样式 */
+.map-container {
+    background: #f5f5f5;
+    border-radius: 15px;
+    padding: 20px;
+}
+
+.time-of-day {
+    text-align: center;
+    padding: 10px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.house-map {
+    position: relative;
+    width: 100%;
+    height: 700px;
+    background: linear-gradient(135deg, #e8f5e9 0%, #fff9c4 100%);
+    border: 4px solid #333;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1.5fr;
+    grid-template-rows: 1.3fr 1fr 0.6fr;
+    gap: 15px;
+    padding: 15px;
+    transition: background 0.5s ease;
+}
+
+.house-map.morning {
+    background: linear-gradient(135deg, #fffde7 0%, #fff9c4 100%);
+}
+
+.house-map.afternoon {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+}
+
+.house-map.evening {
+    background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%);
+}
+
+.house-map.night {
+    background: linear-gradient(135deg, #283593 0%, #1a237e 100%);
+}
+
+.room {
+    background: white;
+    border: 3px solid #333;
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.room:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.room-label {
+    font-weight: bold;
+    font-size: 13px;
+    color: #333;
+}
+
+.window {
+    font-size: 16px;
+    opacity: 0.7;
+}
+
+.window.large {
+    font-size: 14px;
+}
+
+.room-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+}
+
+.room-content.living {
+    gap: 5px;
+}
+
+.room-content.simple {
+    font-size: 18px;
+    gap: 5px;
+}
+
+.room-activity {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 2;
+    font-weight: bold;
+}
+
+/* 琴房 */
+.piano-room {
+    grid-area: 1 / 1 / 2 / 2;
+    background: linear-gradient(135deg, #ffe4e1 0%, #ffd1dc 100%);
+}
+
+.piano-sprite {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 18px;
+}
+
+.piano-body {
+    background: #1a1a1a;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+
+.piano-keys {
+    font-size: 14px;
+    letter-spacing: 1px;
+    margin-top: 2px;
+}
+
+.room-plants {
+    position: absolute;
+    bottom: 35px;
+    right: 10px;
+    font-size: 16px;
+}
+
+/* 阿文的房间 */
+.awen-room {
+    grid-area: 1 / 2 / 2 / 3;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.bookshelf {
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.furniture-row {
+    display: flex;
+    gap: 15px;
+    font-size: 18px;
+    margin-top: 5px;
+}
+
+.bed, .desk {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+/* 客厅 */
+.living-room {
+    grid-area: 1 / 3 / 3 / 4;
+    background: linear-gradient(135deg, #fff8dc 0%, #ffe4b5 100%);
+}
+
+.tv-wall {
+    margin-bottom: 5px;
+}
+
+.tv {
+    font-size: 28px;
+}
+
+.sofa-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.sofa {
+    font-size: 32px;
+}
+
+.coffee-table {
+    font-size: 16px;
+}
+
+.plants {
+    position: absolute;
+    bottom: 35px;
+    left: 10px;
+    font-size: 18px;
+}
+
+/* 厨房 */
+.kitchen {
+    grid-area: 2 / 1 / 3 / 2;
+    background: linear-gradient(135deg, #f0fff0 0%, #c8e6c9 100%);
+}
+
+.kitchen-appliances {
+    display: flex;
+    gap: 10px;
+    font-size: 22px;
+}
+
+.kitchen-items {
+    font-size: 16px;
+    margin-top: 5px;
+}
+
+/* 卫生间 */
+.bathroom {
+    grid-area: 2 / 2 / 3 / 3;
+    background: linear-gradient(135deg, #f0f8ff 0%, #b3d9ff 100%);
+}
+
+/* 外出区域 */
+.outside-area {
+    grid-area: 3 / 1 / 4 / 4;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+    border-style: dashed;
+}
+
+.outside-placeholder {
+    font-size: 24px;
+    color: #999;
+    opacity: 0.5;
+}
+
+/* 家具区域布局 */
+.furniture-area {
+    position: absolute;
+}
+
+.furniture-area.top {
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.furniture-area.bottom {
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.furniture-area.left {
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.furniture-area.right {
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.furniture-area.center {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* 客厅特殊布局 */
+.living-room .furniture-area.left {
+    left: 20px;
+    top: 60%;
+}
+
+.living-room .furniture-area.right {
+    right: 20px;
+    top: 60%;
+}
+
+.living-room .furniture-area.center {
+    top: 65%;
+}
+
+/* 角色样式 */
+.character {
+    position: absolute;
+    width: 70px;
+    height: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 10;
+    transition: all 0.5s ease;
+    pointer-events: none;
+}
+
+.character-sprite {
+    width: 60px;
+    height: 60px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.4));
+}
+
+.character-name {
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-top: 6px;
+    font-weight: bold;
+}
+
+.awen { color: #4a90e2; }
+.dabao { color: #e24a90; }
+
+/* 状态面板 */
+.status-panel {
+    margin-top: 20px;
+    background: white;
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.status-item {
+    padding: 10px;
+    background: #f9f9f9;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+/* 聊天样式 */
+.chat-container {
+    background: #f5f5f5;
+    border-radius: 15px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 640px;
+}
+
+.chat-header {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.clear-btn {
+    padding: 5px 10px;
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.clear-btn:hover {
+    background: #ff5252;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.message {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 80%;
+}
+
+.message.awen {
+    background: #e3f2fd;
+    margin-right: auto;
+}
+
+.message.dabao {
+    background: #fce4ec;
+    margin-left: auto;
+}
+
+.message-sender {
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.message-text {
+    font-size: 14px;
+}
+
+.message-time {
+    font-size: 10px;
+    color: #999;
+    margin-top: 5px;
+}
+
+.system-message {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    margin: 10px 0;
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 10px;
+}
+
+#chat-input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#send-button {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#send-button:hover {
+    opacity: 0.9;
+}
+
+.user-selector {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.user-btn {
+    padding: 8px 15px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.user-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+.status-input-container {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+#status-input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#status-button {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#status-button:hover {
+    opacity: 0.9;
+}
+
+/* 功能区域 */
+.features-section {
+    margin-top: 20px;
+    border-top: 2px solid #ddd;
+    padding-top: 15px;
+}
+
+.feature-card {
+    margin-bottom: 10px;
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.feature-card summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 5px;
+    user-select: none;
+}
+
+.feature-card summary:hover {
+    background: #f0f0f0;
+    border-radius: 5px;
+}
+
+.feature-content {
+    margin-top: 10px;
+    padding: 10px;
+}
+
+.feature-content input,
+.feature-content textarea {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.feature-content textarea {
+    min-height: 60px;
+    resize: vertical;
+}
+
+.feature-content button {
+    width: 100%;
+    padding: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.feature-content button:hover {
+    opacity: 0.9;
+}
+
+.current-status {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 5px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.current-status.active {
+    background: #e3f2fd;
+    border: 2px solid #2196f3;
+}
+
+.notes-wall {
+    margin-top: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.note-item {
+    background: #fff9c4;
+    border-left: 4px solid #ffc107;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 11px;
+    color: #666;
+}
+
+.note-text {
+    font-size: 13px;
+    color: #333;
+}
+
+/* 番茄钟样式 */
+.pomodoro-card {
+    border-color: #ff6b6b;
+}
+
+.timer-display {
+    font-size: 32px;
+    font-weight: bold;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+    color: white;
+    border-radius: 10px;
+    margin: 10px 0;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.timer-display.running {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+.timer-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.timer-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.timer-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.timer-btn.start {
+    background: #4caf50;
+}
+
+.timer-btn.start:hover:not(:disabled) {
+    background: #45a049;
+}
+
+.timer-btn.pause {
+    background: #ff9800;
+}
+
+.timer-btn.pause:hover:not(:disabled) {
+    background: #fb8c00;
+}
+
+.timer-btn.stop {
+    background: #f44336;
+}
+
+.timer-btn.stop:hover:not(:disabled) {
+    background: #e53935;
+}
+
+.today-stats {
+    text-align: center;
+    padding: 10px;
+    background: #e8f5e9;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #2e7d32;
+    margin-bottom: 10px;
+}
+
+.pomodoro-history {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.history-item {
+    background: #fff3e0;
+    border-left: 4px solid #ff9800;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    margin-bottom: 3px;
+    font-size: 11px;
+    color: #666;
+}
+
+.history-task {
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 3px;
+}
+
+.history-duration {
+    font-size: 12px;
+    color: #ff9800;
+    font-weight: bold;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+
+    .chat-container {
+        height: 400px;
+    }
+    
+    .house-map {
+        height: 600px;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+        min-height: 100vh;
+        height: auto;
+    }
+    
+    .container {
+        border-radius: 15px;
+        min-height: calc(100vh - 20px);
+    }
+    
+    header {
+        padding: 15px 20px;
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    header h1 {
+        font-size: 20px;
+    }
+    
+    .time-status {
+        font-size: 12px;
+    }
+    
+    .main-content {
+        grid-template-columns: 1fr;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .map-container {
+        padding: 15px;
+    }
+    
+    .house-map {
+        height: auto;
+        min-height: 500px;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto;
+        gap: 10px;
+        padding: 10px;
+    }
+    
+    /* 移动端重新布局房间 */
+    .piano-room {
+        grid-area: 1 / 1 / 2 / 3;
+    }
+    
+    .awen-room {
+        grid-area: 2 / 1 / 3 / 2;
+    }
+    
+    .living-room {
+        grid-area: 3 / 1 / 4 / 3;
+    }
+    
+    .kitchen {
+        grid-area: 2 / 2 / 3 / 3;
+    }
+    
+    .bathroom {
+        grid-area: 4 / 1 / 5 / 2;
+    }
+    
+    .outside-area {
+        grid-area: 4 / 2 / 5 / 3;
+    }
+    
+    .room {
+        padding: 10px;
+        min-height: 120px;
+    }
+    
+    .room-label {
+        font-size: 12px;
+    }
+    
+    .window {
+        font-size: 14px;
+    }
+    
+    .room-content {
+        font-size: 18px;
+        gap: 6px;
+    }
+    
+    .room-activity {
+        font-size: 10px;
+        padding: 3px 8px;
+        bottom: 6px;
+    }
+    
+    .character {
+        width: 50px;
+        height: 70px;
+    }
+    
+    .character-sprite {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .character-name {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+    
+    .chat-container {
+        height: 500px;
+    }
+    
+    .chat-messages {
+        padding: 10px;
+    }
+    
+    .message {
+        max-width: 90%;
+        padding: 8px;
+        font-size: 13px;
+    }
+    
+    .timer-display {
+        font-size: 28px;
+        padding: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 5px;
+    }
+    
+    header h1 {
+        font-size: 18px;
+    }
+    
+    .house-map {
+        min-height: 400px;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 8px;
+    }
+    
+    /* 超小屏幕单列布局 */
+    .piano-room {
+        grid-area: auto;
+    }
+    
+    .awen-room {
+        grid-area: auto;
+    }
+    
+    .living-room {
+        grid-area: auto;
+    }
+    
+    .kitchen {
+        grid-area: auto;
+    }
+    
+    .bathroom {
+        grid-area: auto;
+    }
+    
+    .outside-area {
+        grid-area: auto;
+    }
+    
+    .room {
+        min-height: 100px;
+    }
+    
+    .room-content {
+        font-size: 16px;
+    }
+    
+    .character {
+        width: 40px;
+        height: 60px;
+    }
+    
+    .character-sprite {
+        width: 35px;
+        height: 35px;
+    }
+}

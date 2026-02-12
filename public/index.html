@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿文和大宝的家</title>
+    <link rel="stylesheet" href="css/ui.css">
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- HUD overlay (outside Phaser canvas) -->
+    <div id="hud-overlay">
+        <div id="top-bar">
+            <span id="clock"></span>
+            <span id="time-period"></span>
+            <button id="music-toggle-btn" title="音乐">🎵</button>
+            <button id="notes-toggle-btn" title="留言板">📌</button>
+            <button id="edit-mode-btn" title="家具编辑">✏️</button>
+            <button id="layout-btn" title="切换布局">🏠</button>
+            <button id="refresh-btn" title="刷新状态">↻</button>
+        </div>
+
+        <!-- Status bar -->
+        <div id="status-bar">
+            <div class="char-status" id="awen-status-bar">
+                <span class="char-name">阿文</span>
+                <span class="char-activity" id="awen-activity">...</span>
+                <span class="online-dot" id="awen-online"></span>
+            </div>
+            <div class="char-status" id="dabao-status-bar">
+                <span class="char-name">大宝</span>
+                <span class="char-activity" id="dabao-activity">...</span>
+                <span class="online-dot" id="dabao-online"></span>
+            </div>
+        </div>
+
+        <!-- Character info panel (hidden by default) -->
+        <div id="char-panel" class="panel hidden">
+            <div class="panel-header">
+                <span id="panel-name"></span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="emotion-bars"></div>
+                <div id="toward-display"></div>
+                <div id="health-display"></div>
+            </div>
+        </div>
+
+        <!-- Chat panel -->
+        <div id="chat-panel" class="panel">
+            <div class="panel-header">
+                <span>聊天</span>
+                <button id="toggle-chat" class="panel-toggle">_</button>
+            </div>
+            <div class="panel-body" id="chat-body">
+                <div id="chat-messages"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="说点什么..." />
+                    <button id="chat-send">发送</button>
+                </div>
+                <div class="user-select">
+                    <button class="user-btn active" data-user="dabao">大宝</button>
+                    <button class="user-btn" data-user="awen">阿文</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes / bulletin board panel -->
+        <div id="notes-panel" class="panel hidden">
+            <div class="panel-header">
+                <span>📌 留言板</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="notes-list"></div>
+                <div class="notes-input-row">
+                    <input type="text" id="note-input" placeholder="留点什么..." maxlength="80" />
+                    <button id="note-send">发</button>
+                </div>
+                <div class="user-select">
+                    <button class="user-btn active note-user-btn" data-user="dabao">大宝</button>
+                    <button class="user-btn note-user-btn" data-user="awen">阿文</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Furniture editor panel -->
+        <div id="furniture-panel" class="panel hidden">
+            <div class="panel-header">
+                <span>✏️ 家具编辑</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+                <div style="padding: 5px 8px; font-size: 10px; color: #888;">左键放置 · 右键删除 · 点选图块↓</div>
+                <div id="furniture-palette-wrap">
+                    <canvas id="furniture-palette"></canvas>
+                </div>
+                <div style="padding: 6px 8px; display: flex; gap: 6px; align-items: center;">
+                    <span id="selected-tile-info" style="font-size: 10px; color: #888; flex: 1;">未选择</span>
+                    <button id="clear-furniture-btn">清空</button>
+                    <button id="save-furniture-btn">保存退出</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Music player -->
+        <div id="music-panel" class="panel hidden">
+            <div class="panel-header">
+                <span>🎵 音乐</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="music-current">
+                    <div id="music-info" class="music-status">暂无播放</div>
+                    <div id="music-embed"></div>
+                </div>
+                <div class="music-share-row">
+                    <input type="text" id="music-link-input" placeholder="粘贴 Spotify / 网易云 链接..." />
+                    <button id="music-share-btn">分享</button>
+                </div>
+                <div class="user-select">
+                    <button class="user-btn active" data-user="dabao" id="music-user-dabao">大宝</button>
+                    <button class="user-btn" data-user="awen" id="music-user-awen">阿文</button>
+                </div>
+                <button id="music-clear-btn" class="music-clear">停止播放</button>
+            </div>
+        </div>
+        <!-- Schedule popup -->
+        <div id="schedule-popup" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>📋 今日日程</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="schedule-content"></div>
+            </div>
+        </div>
+
+        <!-- Fridge popup -->
+        <div id="fridge-popup" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>🧊 冰箱</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="fridge-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phaser 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- EasyStar pathfinding -->
+    <script src="https://cdn.jsdelivr.net/npm/easystarjs@0.4.4/bin/easystar-0.4.4.min.js"></script>
+    <!-- Game scripts -->
+    <script src="scenes/Boot.js"></script>
+    <script src="scenes/Home.js"></script>
+    <script src="scenes/UI.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

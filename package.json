@@ -1,0 +1,15 @@
+{
+  "name": "virtual-home",
+  "version": "2.0.0",
+  "description": "阿文和大宝的虚拟家园",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "socket.io": "^4.7.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.0"
+  }
+}
