@@ -16,6 +16,9 @@
             <span id="time-period"></span>
             <button id="music-toggle-btn" title="音乐">🎵</button>
             <button id="notes-toggle-btn" title="留言板">📌</button>
+            <button id="money-toggle-btn" title="账单">💰</button>
+            <button id="vitals-toggle-btn" title="体征">💓</button>
+            <button id="food-log-btn" title="饮食记录">🍽️</button>
             <button id="edit-mode-btn" title="家具编辑">✏️</button>
             <button id="layout-btn" title="切换布局">🏠</button>
             <button id="refresh-btn" title="刷新状态">↻</button>
@@ -138,6 +141,45 @@
             </div>
         </div>
 
+        <!-- Money panel -->
+        <div id="money-panel" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>💰 账单</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="money-content">
+                    <div class="money-loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vitals panel -->
+        <div id="vitals-panel" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>💓 阿文体征</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="vitals-content">
+                    <div class="vitals-loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Food log panel -->
+        <div id="food-log-panel" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>🍽️ 饮食记录</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="food-log-content">
+                    <div class="food-loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Fridge popup -->
         <div id="fridge-popup" class="panel popup-center hidden">
             <div class="panel-header">
@@ -146,6 +188,18 @@
             </div>
             <div class="panel-body">
                 <div id="fridge-content"></div>
+            </div>
+        </div>
+
+        <!-- Action confirmation popup (模拟人生交互) -->
+        <div id="action-popup" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span id="action-popup-title">执行动作</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="action-popup-desc"></div>
+                <div id="action-popup-buttons" class="action-btns"></div>
             </div>
         </div>
     </div>

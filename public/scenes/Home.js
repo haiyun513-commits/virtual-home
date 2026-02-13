@@ -220,9 +220,16 @@ class HomeScene extends Phaser.Scene {
         this.createCharacter('dabao', { x: 5  * TS, y: 15 * TS });
 
         // ============================================
-        // Click to move (dabao)
+        // Click to move (dabao only)
         // ============================================
+        this.interactionHandled = false; // 交互物件点击标志
         this.input.on('pointerdown', (pointer) => {
+            // 如果刚点了交互物件（冰箱/日程/家具等），不走路
+            if (this.interactionHandled) {
+                this.interactionHandled = false;
+                return;
+            }
+
             const tileX = Math.floor(pointer.worldX / TS);
             const tileY = Math.floor(pointer.worldY / TS);
 
@@ -235,7 +242,6 @@ class HomeScene extends Phaser.Scene {
                 return;
             }
 
-            if (gameState.currentUser !== 'dabao') return;
             const room = this.getRoomAt(tileX, tileY);
             if (room && room !== this.characters.dabao?.currentRoom) {
                 this.moveCharacterToRoom('dabao', room);
@@ -415,6 +421,37 @@ class HomeScene extends Phaser.Scene {
         gfx.strokeRect(23 * TS, 12 * TS, 4 * TS, 3 * TS);
         gfx.fillStyle(0xb8daf0, 0.6);  // soft blue water
         gfx.fillRect(23 * TS + 4, 12 * TS + 4, 4 * TS - 8, 3 * TS - 8);
+
+        // Toilet (bathroom, bottom-right)
+        gfx.fillStyle(0xf0f4f8, 1);  // white porcelain
+        gfx.fillRect(27 * TS, 15 * TS, TS + 8, TS * 2);
+        gfx.lineStyle(1, 0xc8d0d8, 1);
+        gfx.strokeRect(27 * TS, 15 * TS, TS + 8, TS * 2);
+        // Seat
+        gfx.fillStyle(0xe4e8ec, 1);
+        gfx.fillRect(27 * TS + 2, 15 * TS + TS / 2, TS + 4, TS);
+        // Tank
+        gfx.fillStyle(0xd8dce0, 1);
+        gfx.fillRect(27 * TS + 4, 15 * TS + 2, TS, TS / 2 - 2);
+
+        // Bed (awen-room, right side)
+        gfx.fillStyle(0x8c6048, 1);  // wood frame
+        gfx.fillRect(17 * TS, 4 * TS, 3 * TS, 4 * TS);
+        gfx.fillStyle(0xd4e4f8, 1);  // light blue sheets
+        gfx.fillRect(17 * TS + 3, 4 * TS + 3, 3 * TS - 6, 4 * TS - 6);
+        // Pillow
+        gfx.fillStyle(0xf0f4f8, 1);
+        gfx.fillRect(17 * TS + 6, 4 * TS + 6, 2 * TS, TS - 4);
+        // Blanket fold
+        gfx.fillStyle(0xa8c0e0, 0.6);
+        gfx.fillRect(17 * TS + 3, 6 * TS, 3 * TS - 6, 2 * TS - 6);
+
+        // Game console area hint (living-room, near TV)
+        // Small Switch/PS5 on coffee table
+        gfx.fillStyle(0x1a1a2e, 1);
+        gfx.fillRect(3 * TS + 4, 12 * TS + 4, TS - 8, TS / 2);  // console
+        gfx.fillStyle(0x4466aa, 1);
+        gfx.fillRect(3 * TS + 6, 12 * TS + 6, TS / 2 - 4, TS / 2 - 6);  // screen glow
     }
 
     // ----------------------------------------
@@ -821,6 +858,55 @@ class HomeScene extends Phaser.Scene {
     }
 
     // ----------------------------------------
+    // Speech bubble (体征触发的说话气泡)
+    // ----------------------------------------
+    showSpeechBubble(name, text, duration = 8000) {
+        const char = this.characters[name];
+        if (!char) return;
+
+        // 如果已有说话气泡，先销毁
+        if (char.speechBubble) {
+            char.speechBubble.destroy();
+            char.speechBubble = null;
+        }
+
+        const px = char.container.x;
+        const py = char.container.y - 50;
+
+        const bubble = this.add.text(px, py, `💬 ${text}`, {
+            font: 'bold 10px monospace',
+            fill: '#4a3030',
+            backgroundColor: '#fff3e0ee',
+            padding: { x: 6, y: 3 },
+            wordWrap: { width: 130 }
+        }).setOrigin(0.5, 1).setDepth(55);
+
+        char.speechBubble = bubble;
+
+        // 浮上动画
+        this.tweens.add({
+            targets: bubble,
+            y: py - 8,
+            alpha: { from: 0, to: 1 },
+            duration: 300,
+            ease: 'Back.easeOut'
+        });
+
+        // 定时消失
+        this.time.delayedCall(duration, () => {
+            if (bubble && bubble.active) {
+                this.tweens.add({
+                    targets: bubble,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => { bubble.destroy(); }
+                });
+            }
+            if (char.speechBubble === bubble) char.speechBubble = null;
+        });
+    }
+
+    // ----------------------------------------
     // Interactive objects (schedule board + fridge)
     // ----------------------------------------
     createInteractiveObjects(TS) {
@@ -848,6 +934,7 @@ class HomeScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true }).setDepth(5);
         schedZone.on('pointerdown', (ptr) => {
             ptr.event.stopPropagation();
+            this.interactionHandled = true;
             this.showSchedulePopup();
         });
 
@@ -857,7 +944,57 @@ class HomeScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true }).setDepth(5);
         fridgeZone.on('pointerdown', (ptr) => {
             ptr.event.stopPropagation();
+            this.interactionHandled = true;
             this.showFridgePopup();
+        });
+
+        // ====== Phase 2: 模拟人生交互对象 ======
+
+        // Bathtub (bathroom) - 洗澡/上厕所
+        const bathZone = this.add.zone(25 * TS, 13.5 * TS, 4 * TS, 3 * TS)
+            .setInteractive({ useHandCursor: true }).setDepth(5);
+        bathZone.on('pointerdown', (ptr) => {
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            this.showActionPopup('🚿 浴室', '洗个澡恢复卫生值', [
+                { label: '洗澡', action: 'shower', icon: '🚿' },
+                { label: '上厕所', action: 'toilet', icon: '🚽' }
+            ]);
+        });
+
+        // TV / Sofa (living-room) - 看剧
+        const tvZone = this.add.zone(4.5 * TS, 12 * TS, 3 * TS, 2 * TS)
+            .setInteractive({ useHandCursor: true }).setDepth(5);
+        tvZone.on('pointerdown', (ptr) => {
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            this.showActionPopup('📺 客厅娱乐', '放松一下', [
+                { label: '看剧', action: 'tv', icon: '📺' },
+                { label: '打游戏', action: 'game', icon: '🎮' }
+            ]);
+        });
+
+        // Bed (awen-room) - 睡觉
+        const bedZone = this.add.zone(17.5 * TS, 5.5 * TS, 3 * TS, 3 * TS)
+            .setInteractive({ useHandCursor: true }).setDepth(5);
+        bedZone.on('pointerdown', (ptr) => {
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            this.showActionPopup('🛏️ 床', '休息一下', [
+                { label: '睡觉', action: 'sleep', icon: '😴' }
+            ]);
+        });
+
+        // Water tap (kitchen counter area) - 喝水
+        const waterZone = this.add.zone(15 * TS, 12 * TS, 3 * TS, 2 * TS)
+            .setInteractive({ useHandCursor: true }).setDepth(5);
+        waterZone.on('pointerdown', (ptr) => {
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            this.showActionPopup('🚰 厨房', '补充水分', [
+                { label: '喝水', action: 'drink_water', icon: '💧' },
+                { label: '泡咖啡', action: 'drink_coffee', icon: '☕' }
+            ]);
         });
     }
 
@@ -922,6 +1059,115 @@ class HomeScene extends Phaser.Scene {
             .catch(() => {
                 content.innerHTML = '<div class="no-data">加载失败</div>';
             });
+    }
+
+    // ----------------------------------------
+    // Phase 2: Action popup (模拟人生交互)
+    // ----------------------------------------
+    showActionPopup(title, desc, actions) {
+        const popup = document.getElementById('action-popup');
+        const titleEl = document.getElementById('action-popup-title');
+        const descEl = document.getElementById('action-popup-desc');
+        const btnsEl = document.getElementById('action-popup-buttons');
+        if (!popup) return;
+
+        titleEl.textContent = title;
+        btnsEl.innerHTML = '';
+
+        // 角色选择行
+        let selectedChar = 'dabao'; // 默认大宝（玩家）
+        const charRow = document.createElement('div');
+        charRow.className = 'action-char-toggle';
+        const dabaoBtn = document.createElement('button');
+        dabaoBtn.className = 'char-toggle-btn active';
+        dabaoBtn.textContent = '大宝';
+        const awenBtn = document.createElement('button');
+        awenBtn.className = 'char-toggle-btn';
+        awenBtn.textContent = '阿文';
+        dabaoBtn.onclick = () => {
+            selectedChar = 'dabao';
+            dabaoBtn.classList.add('active');
+            awenBtn.classList.remove('active');
+        };
+        awenBtn.onclick = () => {
+            selectedChar = 'awen';
+            awenBtn.classList.add('active');
+            dabaoBtn.classList.remove('active');
+        };
+        charRow.appendChild(dabaoBtn);
+        charRow.appendChild(awenBtn);
+
+        descEl.innerHTML = '';
+        descEl.appendChild(charRow);
+        const descText = document.createElement('div');
+        descText.textContent = desc;
+        descText.style.marginTop = '6px';
+        descEl.appendChild(descText);
+
+        for (const act of actions) {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            btn.textContent = `${act.icon} ${act.label}`;
+            btn.onclick = () => {
+                popup.classList.add('hidden');
+                gameState.currentUser = selectedChar;
+                this.executeAction(act.action);
+            };
+            btnsEl.appendChild(btn);
+        }
+
+        popup.classList.remove('hidden');
+    }
+
+    executeAction(action) {
+        // 大宝的操作：只更新状态栏，不影响体征
+        if (gameState.currentUser === 'dabao') {
+            this.executeDabaoAction(action);
+            return;
+        }
+
+        const SERVER = '';  // same origin
+
+        if (action === 'drink_water') {
+            fetch(SERVER + '/drink', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ drink: '水', from_fridge: false })
+            });
+            return;
+        }
+        if (action === 'drink_coffee') {
+            fetch(SERVER + '/drink', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ drink: '咖啡', from_fridge: true })
+            });
+            return;
+        }
+
+        // Generic action (shower, toilet, sleep, game, tv)
+        fetch(SERVER + '/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+        });
+    }
+
+    executeDabaoAction(action) {
+        const desc = {
+            shower: '洗澡中', toilet: '上厕所', sleep: '在阿文床上躺着',
+            game: '玩游戏', tv: '看剧', drink_water: '喝水', drink_coffee: '喝咖啡'
+        };
+        const rooms = {
+            shower: 'bathroom', toilet: 'bathroom', sleep: 'awen-room',
+            game: 'living-room', tv: 'living-room', drink_water: 'kitchen', drink_coffee: 'kitchen'
+        };
+
+        fetch('/custom-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: 'dabao', status: desc[action] || '在忙', room: rooms[action] || 'living-room' })
+        });
     }
 
     enterEditMode() {

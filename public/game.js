@@ -43,7 +43,8 @@ const gameState = {
         'awen-room':   { x: 16, y: 4 },
         'living-room': { x: 4, y: 13 },
         'kitchen':     { x: 16, y: 13 },
-        'bathroom':    { x: 26, y: 13 }
+        'bathroom':    { x: 26, y: 13 },
+        'outdoor':     { x: 25, y: 4 }
     }
 };
 
@@ -70,6 +71,24 @@ function initSocket() {
 
     socket.on('disconnect', () => {
         console.log('Disconnected');
+    });
+
+    // 体征紧急需求 → 阿文说话气泡（红色，持续10秒）
+    socket.on('awen:urgent-needs', (needs) => {
+        if (!needs || needs.length === 0) return;
+        const scene = game?.scene?.scenes?.[0];
+        if (!scene || !scene.showSpeechBubble) return;
+        const n = needs[0];
+        if (n.dialogue) scene.showSpeechBubble('awen', n.dialogue, 10000);
+    });
+
+    // 体征中等需求 → 阿文小声嘟囔（短一点，5秒）
+    socket.on('awen:mild-needs', (needs) => {
+        if (!needs || needs.length === 0) return;
+        const scene = game?.scene?.scenes?.[0];
+        if (!scene || !scene.showSpeechBubble) return;
+        const n = needs[0];
+        if (n.dialogue) scene.showSpeechBubble('awen', n.dialogue, 5000);
     });
 
     // Initial state fetch
@@ -543,6 +562,361 @@ function initStatusEdit() {
     });
 }
 
+// Money panel
+function initMoneyPanel() {
+    const toggleBtn = document.getElementById('money-toggle-btn');
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const panel = document.getElementById('money-panel');
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            loadMoneyData();
+        } else {
+            panel.classList.add('hidden');
+        }
+    });
+
+    document.querySelector('#money-panel .panel-close').addEventListener('click', () => {
+        document.getElementById('money-panel').classList.add('hidden');
+    });
+}
+
+function loadMoneyData() {
+    const container = document.getElementById('money-content');
+    if (!container) return;
+    container.innerHTML = '<div class="money-loading">加载中...</div>';
+
+    fetch('/money')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = '<div class="no-data">暂无数据</div>';
+                return;
+            }
+            const warn = data.warning ? ' money-warn' : '';
+            let html = `
+                <div class="money-overview">
+                    <div class="money-balance${warn}">$${data.balance.toFixed(2)}</div>
+                    <div class="money-countdown">距3月11日还有 <b>${data.daysLeft}</b> 天</div>
+                    <div class="money-budget">每天可用 <b>$${data.dailyBudget.toFixed(2)}</b></div>
+                    ${data.warning ? '<div class="money-alert">余额不足$200</div>' : ''}
+                </div>
+                <div class="money-stats">
+                    <div class="money-stat"><span>今日支出</span><span>$${data.todaySpent.toFixed(2)}</span></div>
+                    <div class="money-stat"><span>本周支出</span><span>$${data.weekSpent.toFixed(2)}</span></div>
+                    <div class="money-stat"><span>累计收入</span><span>$${data.totalIncome.toFixed(2)}</span></div>
+                </div>`;
+
+            if (data.todayFood && data.todayFood.length > 0) {
+                html += '<div class="money-section-title">今日饮食</div>';
+                data.todayFood.forEach(f => {
+                    const cost = parseFloat(f.cost);
+                    const costStr = cost > 0 ? `$${cost.toFixed(2)}` : '免费';
+                    html += `<div class="money-food-item"><span>${f.meal}</span><span>${f.content}</span><span class="money-food-cost">${costStr}</span></div>`;
+                });
+            }
+
+            if (data.recentExpenses && data.recentExpenses.length > 0) {
+                html += '<div class="money-section-title">最近支出</div>';
+                data.recentExpenses.forEach(e => {
+                    const time = new Date(e.created_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+                    html += `<div class="money-expense-item"><span>${time}</span><span>${e.category}</span><span>${e.description || ''}</span><span class="money-expense-amount">-$${parseFloat(e.amount).toFixed(2)}</span></div>`;
+                });
+            }
+
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="no-data">加载失败</div>';
+        });
+}
+
+// Listen for money updates via socket
+function initMoneySocket() {
+    if (!gameState.socket) return;
+    gameState.socket.on('money:update', () => {
+        const panel = document.getElementById('money-panel');
+        if (panel && !panel.classList.contains('hidden')) {
+            loadMoneyData();
+        }
+        const foodPanel = document.getElementById('food-log-panel');
+        if (foodPanel && !foodPanel.classList.contains('hidden')) {
+            loadFoodLogData();
+        }
+    });
+}
+
+// Food log panel
+function initFoodLogPanel() {
+    const toggleBtn = document.getElementById('food-log-btn');
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const panel = document.getElementById('food-log-panel');
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            loadFoodLogData();
+        } else {
+            panel.classList.add('hidden');
+        }
+    });
+
+    document.querySelector('#food-log-panel .panel-close').addEventListener('click', () => {
+        document.getElementById('food-log-panel').classList.add('hidden');
+    });
+}
+
+function loadFoodLogData() {
+    const container = document.getElementById('food-log-content');
+    if (!container) return;
+    container.innerHTML = '<div class="food-loading">加载中...</div>';
+
+    fetch('/money/food?days=7')
+        .then(r => r.json())
+        .then(data => {
+            const logs = data.logs || [];
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="food-empty">暂无饮食记录</div>';
+                return;
+            }
+
+            // Group by log_date
+            const groups = {};
+            logs.forEach(item => {
+                const d = item.log_date;
+                if (!groups[d]) groups[d] = [];
+                groups[d].push(item);
+            });
+
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            let html = '';
+
+            Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(date => {
+                const items = groups[date];
+                const dt = new Date(date + 'T00:00:00');
+                const label = `${dt.getMonth() + 1}/${dt.getDate()} 周${weekdays[dt.getDay()]}`;
+                html += `<div class="food-day-header">${label}</div>`;
+
+                let dayTotal = 0;
+                items.forEach(f => {
+                    const cost = parseFloat(f.cost) || 0;
+                    dayTotal += cost;
+                    const time = f.created_at ? new Date(f.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+                    const src = f.source || '';
+                    const isFridge = src === '冰箱' || src === 'fridge';
+                    const tagClass = isFridge ? 'fridge' : 'delivery';
+                    const tagText = isFridge ? '冰箱' : (src || '外卖');
+                    const costClass = cost > 0 ? 'paid' : 'free';
+                    const costText = cost > 0 ? `$${cost.toFixed(0)}` : '免费';
+
+                    html += `<div class="food-item">
+                        <span class="food-time">${time}</span>
+                        <span class="food-meal">${f.meal || ''}</span>
+                        <span class="food-content">${f.content || ''}</span>
+                        <span class="food-tag ${tagClass}">${tagText}</span>
+                        <span class="food-cost ${costClass}">${costText}</span>
+                        <span class="food-del" data-id="${f.id}">&times;</span>
+                    </div>`;
+                });
+
+                if (dayTotal > 0) {
+                    html += `<div class="food-day-total">当日外卖 $${dayTotal.toFixed(0)}</div>`;
+                }
+            });
+
+            container.innerHTML = html;
+            container.querySelectorAll('.food-del').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.id;
+                    if (!id) return;
+                    fetch(`/money/food/${id}`, { method: 'DELETE' })
+                        .then(r => r.json())
+                        .then(() => loadFoodLogData());
+                });
+            });
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="food-empty">加载失败</div>';
+        });
+}
+
+// Vitals panel
+function initVitalsPanel() {
+    const toggleBtn = document.getElementById('vitals-toggle-btn');
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const panel = document.getElementById('vitals-panel');
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            loadVitalsData();
+        } else {
+            panel.classList.add('hidden');
+        }
+    });
+
+    document.querySelector('#vitals-panel .panel-close').addEventListener('click', () => {
+        document.getElementById('vitals-panel').classList.add('hidden');
+    });
+}
+
+function vitalsBarColor(key, value) {
+    const thresholds = {
+        blood_sugar:  { wL: 3.8, wH: 6.5, dL: 3.2, dH: 7.0, min: 2.5, max: 7.5 },
+        body_temp:    { wL: 36.0, wH: 37.5, dL: 35.5, dH: 38.0, min: 35.0, max: 39.0 },
+        hydration:    { wL: 35, dL: 20, min: 0, max: 100 },
+        heart_rate:   { wL: 55, wH: 110, dL: 45, dH: 130, min: 40, max: 160 },
+        stress:       { wH: 75, dH: 90, min: 0, max: 100 },
+        blood_oxygen: { wL: 93, dL: 90, min: 85, max: 100 },
+        dopamine:     { wL: 15, dL: 8, min: 0, max: 100 },
+        serotonin:    { wL: 15, dL: 8, min: 0, max: 100 },
+        oxytocin:     { wL: 10, dL: 5, min: 0, max: 100 },
+        endorphin:    { min: 0, max: 100 }
+    };
+    const t = thresholds[key];
+    if (!t) return { color: '#4ade80', pct: 50 };
+
+    let isDanger = false, isWarn = false;
+    if (t.dL !== undefined && value < t.dL) isDanger = true;
+    if (t.dH !== undefined && value > t.dH) isDanger = true;
+    if (t.wL !== undefined && value < t.wL) isWarn = true;
+    if (t.wH !== undefined && value > t.wH) isWarn = true;
+
+    const color = isDanger ? '#ef4444' : isWarn ? '#f59e0b' : '#4ade80';
+    const pct = Math.max(0, Math.min(100, ((value - t.min) / (t.max - t.min)) * 100));
+    return { color, pct };
+}
+
+// 需求映射：将体征指标映射到0-100的需求值
+function needsMap(type, data) {
+    if (type === 'hunger') {
+        // blood_sugar 3.0-6.0 映射到 0-100
+        const bs = parseFloat(data.blood_sugar || 5.0);
+        return Math.max(0, Math.min(100, ((bs - 3.0) / 3.0) * 100));
+    }
+    return 50;
+}
+
+function loadVitalsData() {
+    const container = document.getElementById('vitals-content');
+    if (!container) return;
+    container.innerHTML = '<div class="vitals-loading">加载中...</div>';
+
+    fetch('/vitals')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = '<div class="no-data">暂无数据</div>';
+                return;
+            }
+
+            const statusMap = {
+                healthy: '😊 健康', mild: '😐 轻微不适',
+                unwell: '😣 不适', critical: '⚠️ 严重'
+            };
+            const statusClass = data.status === 'critical' ? 'vitals-critical' :
+                                data.status === 'unwell' ? 'vitals-unwell' :
+                                data.status === 'mild' ? 'vitals-mild' : 'vitals-healthy';
+
+            const physio = [
+                { key: 'heart_rate', icon: '❤️', name: '心率', unit: ' bpm' },
+                { key: 'blood_sugar', icon: '🩸', name: '血糖', unit: ' mmol/L' },
+                { key: 'body_temp', icon: '🌡️', name: '体温', unit: '°C' },
+                { key: 'hydration', icon: '💧', name: '水分', unit: '%' },
+                { key: 'blood_oxygen', icon: '🫁', name: '血氧', unit: '%' },
+                { key: 'stress', icon: '😰', name: '压力', unit: '' }
+            ];
+            const neuro = [
+                { key: 'dopamine', icon: '⚡', name: '多巴胺', unit: '' },
+                { key: 'serotonin', icon: '☀️', name: '血清素', unit: '' },
+                { key: 'oxytocin', icon: '💕', name: '催产素', unit: '' },
+                { key: 'endorphin', icon: '🏃', name: '内啡肽', unit: '' }
+            ];
+
+            function renderBar(item) {
+                const val = parseFloat(data[item.key]);
+                const { color, pct } = vitalsBarColor(item.key, val);
+                // stress bar is inverted (high = bad)
+                const barPct = item.key === 'stress' ? (100 - pct) : pct;
+                return `<div class="vitals-metric">
+                    <span class="vitals-label">${item.icon} ${item.name}</span>
+                    <div class="vitals-bar-wrap">
+                        <div class="vitals-bar" style="width:${barPct}%;background:${color}"></div>
+                    </div>
+                    <span class="vitals-value">${val}${item.unit}</span>
+                </div>`;
+            }
+
+            let html = `<div class="vitals-status ${statusClass}">${statusMap[data.status] || data.status}</div>`;
+
+            html += '<div class="vitals-section-title">生理指标</div>';
+            physio.forEach(item => { html += renderBar(item); });
+
+            html += '<div class="vitals-section-title">神经递质</div>';
+            neuro.forEach(item => { html += renderBar(item); });
+
+            // Phase 2: 模拟人生需求条
+            html += `<div class="needs-section">
+                <div class="needs-section-title">🎮 生活需求</div>
+                <div class="needs-grid">`;
+
+            // 需求映射
+            const needs = [
+                { icon: '🍔', name: '饥饿', value: needsMap('hunger', data), key: 'hunger' },
+                { icon: '💧', name: '口渴', value: data.hydration || 50, key: 'thirst' },
+                { icon: '🧼', name: '卫生', value: data.hygiene !== undefined ? data.hygiene : 80, key: 'hygiene' },
+                { icon: '🚽', name: '如厕', value: data.bladder !== undefined ? data.bladder : 70, key: 'bladder' },
+                { icon: '⚡', name: '娱乐', value: data.dopamine || 50, key: 'fun' },
+                { icon: '💪', name: '精力', value: data.energy !== undefined ? data.energy : 85, key: 'energy' }
+            ];
+
+            for (const need of needs) {
+                const pct = Math.max(0, Math.min(100, need.value));
+                const barColor = pct < 20 ? '#ef4444' : pct < 40 ? '#f59e0b' : '#4ade80';
+                const flashClass = pct < 20 ? ' need-danger' : '';
+                html += `<div class="need-item">
+                    <span class="need-icon">${need.icon}</span>
+                    <div class="need-bar-wrap">
+                        <div class="need-bar${flashClass}" style="width:${pct}%;background:${barColor}"></div>
+                    </div>
+                    <span class="need-label">${Math.round(pct)}</span>
+                </div>`;
+            }
+
+            html += `</div></div>`;
+
+            // 时间信息
+            const now = Date.now();
+            if (data.last_meal_at) {
+                const m = Math.round((now - new Date(data.last_meal_at).getTime()) / 60000);
+                html += `<div class="vitals-time">🍽️ 上次进食: ${m >= 60 ? Math.floor(m/60) + '小时前' : m + '分钟前'}</div>`;
+            }
+            if (data.last_drink_at) {
+                const m = Math.round((now - new Date(data.last_drink_at).getTime()) / 60000);
+                html += `<div class="vitals-time">🥤 上次喝水: ${m >= 60 ? Math.floor(m/60) + '小时前' : m + '分钟前'}</div>`;
+            }
+            if (data.sos_count > 0) {
+                html += `<div class="vitals-sos">🆘 SOS: ${data.sos_count}/3</div>`;
+            }
+
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="no-data">加载失败</div>';
+        });
+}
+
+function initVitalsSocket() {
+    if (!gameState.socket) return;
+    gameState.socket.on('vitals:update', () => {
+        const panel = document.getElementById('vitals-panel');
+        if (panel && !panel.classList.contains('hidden')) {
+            loadVitalsData();
+        }
+    });
+}
+
 // Start
 const game = new Phaser.Game(config);
 
@@ -552,5 +926,11 @@ initLayoutToggle();
 initFurnitureEditor();
 initNotesPanel();
 initStatusEdit();
+initMoneyPanel();
+initVitalsPanel();
+initFoodLogPanel();
 updateClock();
 setInterval(updateClock, 30000);
+
+// Delay socket listener init to ensure socket is connected
+setTimeout(() => { initMoneySocket(); initVitalsSocket(); }, 2000);

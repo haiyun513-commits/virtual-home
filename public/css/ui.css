@@ -704,6 +704,510 @@ body {
     font-size: 10px;
 }
 
+/* === Money Button === */
+#money-toggle-btn {
+    background: none;
+    border: 1px solid #d4a898;
+    color: #aa7870;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+#money-toggle-btn:hover { border-color: #cc9944; color: #cc9944; }
+
+/* === Money Panel === */
+#money-panel {
+    width: 300px;
+}
+
+.money-loading {
+    color: #bb9999;
+    font-size: 11px;
+    text-align: center;
+    padding: 20px;
+}
+
+.money-overview {
+    text-align: center;
+    padding: 8px 0 12px 0;
+    border-bottom: 1px solid #e8d8d0;
+    margin-bottom: 8px;
+}
+
+.money-balance {
+    font-size: 28px;
+    font-weight: bold;
+    color: #3a6a3a;
+    letter-spacing: 1px;
+}
+
+.money-balance.money-warn {
+    color: #cc3333;
+}
+
+.money-countdown {
+    font-size: 11px;
+    color: #7a5858;
+    margin-top: 4px;
+}
+
+.money-budget {
+    font-size: 12px;
+    color: #5a8a5a;
+    margin-top: 2px;
+}
+
+.money-alert {
+    font-size: 11px;
+    color: #cc3333;
+    font-weight: bold;
+    margin-top: 6px;
+    padding: 3px 8px;
+    background: rgba(255, 60, 40, 0.08);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.money-stats {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.money-stat {
+    flex: 1;
+    background: rgba(255, 210, 180, 0.18);
+    border: 1px solid rgba(255, 160, 120, 0.20);
+    border-radius: 4px;
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 10px;
+    color: #7a5858;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.money-stat span:last-child {
+    font-weight: bold;
+    color: #4a3030;
+    font-size: 12px;
+}
+
+.money-section-title {
+    font-size: 10px;
+    font-weight: bold;
+    color: #8a6060;
+    padding: 6px 0 3px 0;
+    border-bottom: 1px solid #e8d8d0;
+    margin-bottom: 4px;
+}
+
+.money-food-item {
+    display: flex;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 11px;
+    color: #4a3030;
+    align-items: center;
+}
+
+.money-food-item span:first-child {
+    color: #8a6060;
+    font-weight: bold;
+    min-width: 36px;
+}
+
+.money-food-item span:nth-child(2) {
+    flex: 1;
+}
+
+.money-food-cost {
+    color: #888;
+    font-size: 10px;
+}
+
+.money-expense-item {
+    display: flex;
+    gap: 4px;
+    padding: 3px 0;
+    font-size: 10px;
+    color: #7a5858;
+    align-items: center;
+}
+
+.money-expense-item span:first-child {
+    color: #aa8888;
+    min-width: 38px;
+}
+
+.money-expense-item span:nth-child(2) {
+    color: #8a6060;
+    min-width: 36px;
+}
+
+.money-expense-item span:nth-child(3) {
+    flex: 1;
+    color: #4a3030;
+}
+
+.money-expense-amount {
+    color: #cc5544;
+    font-weight: bold;
+    min-width: 50px;
+    text-align: right;
+}
+
+/* === Food Log Panel === */
+#food-log-btn {
+    background: none;
+    border: 1px solid #d4a898;
+    color: #aa7870;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+#food-log-btn:hover { border-color: #cc8844; color: #cc8844; }
+
+#food-log-panel {
+    width: 280px;
+    max-height: 420px;
+}
+#food-log-panel .panel-body {
+    max-height: 380px;
+    overflow-y: auto;
+}
+.food-loading, .food-empty {
+    text-align: center;
+    padding: 20px 0;
+    color: #bb9999;
+    font-size: 11px;
+}
+.food-day-header {
+    font-size: 10px;
+    font-weight: bold;
+    color: #8a6060;
+    padding: 8px 0 3px 0;
+    border-bottom: 1px solid #e8d8d0;
+    margin-bottom: 4px;
+}
+.food-day-header:first-child {
+    padding-top: 0;
+}
+.food-item {
+    display: flex;
+    gap: 5px;
+    padding: 3px 0;
+    font-size: 11px;
+    color: #4a3030;
+    align-items: center;
+}
+.food-time {
+    color: #bb9999;
+    font-size: 9px;
+    min-width: 36px;
+}
+.food-meal {
+    color: #8a6060;
+    font-weight: bold;
+    min-width: 28px;
+}
+.food-content {
+    flex: 1;
+}
+.food-tag {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.food-tag.fridge {
+    background: rgba(68, 170, 102, 0.15);
+    color: #44aa66;
+}
+.food-tag.delivery {
+    background: rgba(204, 136, 68, 0.15);
+    color: #cc8844;
+}
+.food-cost {
+    font-size: 10px;
+    min-width: 36px;
+    text-align: right;
+}
+.food-cost.paid {
+    color: #cc8844;
+}
+.food-cost.free {
+    color: #bb9999;
+}
+.food-del {
+    color: #cc9999;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.food-item:hover .food-del {
+    opacity: 1;
+}
+.food-del:hover {
+    color: #cc4444;
+}
+.food-day-total {
+    text-align: right;
+    font-size: 9px;
+    color: #aa8888;
+    padding: 2px 0 6px 0;
+    border-bottom: 1px dashed #ede0d8;
+}
+
+/* === Vitals Panel === */
+#vitals-toggle-btn {
+    background: none;
+    border: 1px solid #d4a898;
+    color: #aa7870;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+#vitals-toggle-btn:hover { border-color: #e05555; color: #e05555; }
+
+#vitals-panel {
+    width: 320px;
+}
+
+.vitals-loading {
+    color: #bb9999;
+    font-size: 11px;
+    text-align: center;
+    padding: 20px;
+}
+
+.vitals-status {
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+.vitals-healthy { background: #dcfce7; color: #166534; }
+.vitals-mild { background: #fef9c3; color: #854d0e; }
+.vitals-unwell { background: #fed7aa; color: #9a3412; }
+.vitals-critical { background: #fecaca; color: #991b1b; animation: vitals-pulse 1.5s infinite; }
+
+@keyframes vitals-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.vitals-section-title {
+    font-size: 10px;
+    color: #aa8877;
+    font-weight: bold;
+    margin: 8px 0 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #f0e0d8;
+}
+
+.vitals-metric {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 11px;
+}
+
+.vitals-label {
+    min-width: 70px;
+    color: #776666;
+}
+
+.vitals-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: #f5e8e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.vitals-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease, background 0.3s ease;
+}
+
+.vitals-value {
+    min-width: 55px;
+    text-align: right;
+    font-size: 10px;
+    color: #998888;
+    font-family: 'Courier New', monospace;
+}
+
+.vitals-time {
+    font-size: 10px;
+    color: #aa9988;
+    padding: 2px 0;
+    margin-top: 2px;
+}
+
+.vitals-sos {
+    font-size: 11px;
+    color: #dc2626;
+    font-weight: bold;
+    text-align: center;
+    padding: 4px;
+    margin-top: 4px;
+    background: #fef2f2;
+    border-radius: 4px;
+}
+
+/* === Action Popup (模拟人生交互) === */
+#action-popup {
+    width: 240px;
+}
+
+#action-popup-desc {
+    font-size: 11px;
+    color: #7a5858;
+    padding: 4px 0 10px 0;
+    line-height: 1.5;
+}
+
+.action-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    flex: 1;
+    min-width: 80px;
+    background: linear-gradient(135deg, #f8e8e2 0%, #f0d0c8 100%);
+    border: 1px solid #e0b0a0;
+    color: #5a3030;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.15s;
+    text-align: center;
+}
+
+.action-btn:hover {
+    background: linear-gradient(135deg, #f0d0c8 0%, #e8b8a8 100%);
+    border-color: #cc8878;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(180, 100, 80, 0.2);
+}
+
+.action-btn:active {
+    transform: translateY(0);
+}
+
+/* 动作弹窗角色切换 */
+.action-char-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 2px;
+}
+.char-toggle-btn {
+    flex: 1;
+    padding: 4px 0;
+    border: 1px solid #e0c8b8;
+    background: #fdf6f0;
+    color: #9a7868;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.char-toggle-btn.active {
+    background: #d4956a;
+    color: #fff;
+    border-color: #c07850;
+    font-weight: bold;
+}
+.char-toggle-btn:hover:not(.active) {
+    background: #f0e0d0;
+}
+
+/* === Needs Bar (模拟人生需求条) === */
+.needs-section {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #f0e0d8;
+}
+
+.needs-section-title {
+    font-size: 10px;
+    color: #aa8877;
+    font-weight: bold;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.needs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+}
+
+.need-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+}
+
+.need-icon {
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
+}
+
+.need-bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: #f5e8e0;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+}
+
+.need-bar {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease, background 0.3s ease;
+}
+
+.need-bar.need-danger {
+    animation: need-flash 1s infinite;
+}
+
+@keyframes need-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.need-label {
+    font-size: 9px;
+    color: #998888;
+    min-width: 24px;
+    text-align: right;
+}
+
 /* === Scrollbar === */
 ::-webkit-scrollbar {
     width: 4px;
