@@ -2,6 +2,11 @@
 // 阿文和大宝的家 - Phaser Game Config
 // ============================================
 
+function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // Layout preset cycling
 window.currentLayout = 'default';
 const LAYOUT_CYCLE = ['default', 'cozy'];
@@ -41,9 +46,9 @@ const gameState = {
     roomPositions: {
         'piano-room':  { x: 4, y: 4 },
         'awen-room':   { x: 16, y: 4 },
-        'living-room': { x: 4, y: 13 },
-        'kitchen':     { x: 16, y: 13 },
-        'bathroom':    { x: 26, y: 13 },
+        'living-room': { x: 7, y: 15 },
+        'kitchen':     { x: 18, y: 13 },
+        'bathroom':    { x: 24, y: 13 },
         'outdoor':     { x: 25, y: 4 }
     }
 };
@@ -163,7 +168,7 @@ function updateChatMessages(messages) {
         div.className = `chat-msg ${msg.user}`;
         const name = msg.user === 'awen' ? '阿文' : '大宝';
         const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        div.innerHTML = `<span class="msg-name">${name}</span> <span class="msg-text">${msg.message}</span> <span class="msg-time">${time}</span>`;
+        div.innerHTML = `<span class="msg-name">${esc(name)}</span> <span class="msg-text">${esc(msg.message)}</span> <span class="msg-time">${esc(time)}</span>`;
         container.appendChild(div);
     });
     container.scrollTop = container.scrollHeight;
@@ -349,58 +354,13 @@ function initLayoutToggle() {
     });
 }
 
-// Init furniture editor palette
+// Init furniture editor (palette is now rendered inside Phaser canvas)
 function initFurnitureEditor() {
-    const canvas = document.getElementById('furniture-palette');
-    if (!canvas) return;
-
-    const TILE = 16, ZOOM = 2, COLS = 16;
-    const ctx = canvas.getContext('2d');
-    let paletteImg = null;
-    let selectedCol = -1, selectedRow = -1;
-
-    const img = new Image();
-    img.onload = () => {
-        paletteImg = img;
-        canvas.width  = img.width * ZOOM;
-        canvas.height = img.height * ZOOM;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
-    img.src = 'assets/modern-interiors/Interiors_free_16x16.png';
-
-    canvas.addEventListener('click', (e) => {
-        if (!paletteImg) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const col = Math.floor((e.clientX - rect.left) * scaleX / (TILE * ZOOM));
-        const row = Math.floor((e.clientY - rect.top)  * scaleY / (TILE * ZOOM));
-        selectedCol = col; selectedRow = row;
-        const frame = row * COLS + col;
-
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(paletteImg, 0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#ffff00';
-        ctx.lineWidth   = 2;
-        ctx.strokeRect(col * TILE * ZOOM, row * TILE * ZOOM, TILE * ZOOM, TILE * ZOOM);
-
-        const homeScene = game.scene.getScene('HomeScene');
-        if (homeScene) {
-            homeScene.selectedFrame = frame;
-            if (homeScene.updateRotationDisplay) {
-                homeScene.updateRotationDisplay();
-            }
-        }
-
-        const info = document.getElementById('selected-tile-info');
-        if (info && (!homeScene || !homeScene.updateRotationDisplay)) {
-            info.textContent = `已选 frame ${frame} (r${row} c${col})`;
-        }
-    });
-
     // Edit mode toggle button
-    document.getElementById('edit-mode-btn').addEventListener('click', () => {
+    const editBtn = document.getElementById('edit-mode-btn');
+    if (!editBtn) return;
+
+    editBtn.addEventListener('click', () => {
         const panel = document.getElementById('furniture-panel');
         const homeScene = game.scene.getScene('HomeScene');
         if (!homeScene) return;
@@ -415,20 +375,20 @@ function initFurnitureEditor() {
     });
 
     // Save and exit
-    document.getElementById('save-furniture-btn').addEventListener('click', () => {
+    document.getElementById('save-furniture-btn')?.addEventListener('click', () => {
         const homeScene = game.scene.getScene('HomeScene');
         if (homeScene && homeScene.editMode) homeScene.exitEditMode();
         document.getElementById('furniture-panel').classList.add('hidden');
     });
 
     // Clear all
-    document.getElementById('clear-furniture-btn').addEventListener('click', () => {
+    document.getElementById('clear-furniture-btn')?.addEventListener('click', () => {
         const homeScene = game.scene.getScene('HomeScene');
         if (homeScene) { homeScene.furnitureData = []; homeScene.renderFurniture(); }
     });
 
     // Panel close button exits edit mode
-    document.querySelector('#furniture-panel .panel-close').addEventListener('click', () => {
+    document.querySelector('#furniture-panel .panel-close')?.addEventListener('click', () => {
         const homeScene = game.scene.getScene('HomeScene');
         if (homeScene && homeScene.editMode) homeScene.exitEditMode();
     });
@@ -457,7 +417,7 @@ function updateNotesPanel(notes) {
                 <span class="note-time">${time}</span>
                 <button class="note-delete" data-ts="${ts}">×</button>
             </div>
-            <div class="note-text">${note.note}</div>
+            <div class="note-text">${esc(note.note)}</div>
         </div>`;
     }).join('');
 
@@ -482,7 +442,7 @@ function initNotesPanel() {
         document.getElementById('notes-panel').classList.toggle('hidden');
     });
 
-    document.querySelector('#notes-panel .panel-close').addEventListener('click', () => {
+    document.querySelector('#notes-panel .panel-close')?.addEventListener('click', () => {
         document.getElementById('notes-panel').classList.add('hidden');
     });
 
@@ -501,8 +461,8 @@ function initNotesPanel() {
         });
     };
 
-    document.getElementById('note-send').addEventListener('click', sendNote);
-    document.getElementById('note-input').addEventListener('keypress', e => {
+    document.getElementById('note-send')?.addEventListener('click', sendNote);
+    document.getElementById('note-input')?.addEventListener('keypress', e => {
         if (e.key === 'Enter') sendNote();
     });
 
@@ -577,7 +537,7 @@ function initMoneyPanel() {
         }
     });
 
-    document.querySelector('#money-panel .panel-close').addEventListener('click', () => {
+    document.querySelector('#money-panel .panel-close')?.addEventListener('click', () => {
         document.getElementById('money-panel').classList.add('hidden');
     });
 }
@@ -613,7 +573,7 @@ function loadMoneyData() {
                 data.todayFood.forEach(f => {
                     const cost = parseFloat(f.cost);
                     const costStr = cost > 0 ? `$${cost.toFixed(2)}` : '免费';
-                    html += `<div class="money-food-item"><span>${f.meal}</span><span>${f.content}</span><span class="money-food-cost">${costStr}</span></div>`;
+                    html += `<div class="money-food-item"><span>${esc(f.meal)}</span><span>${esc(f.content)}</span><span class="money-food-cost">${esc(costStr)}</span></div>`;
                 });
             }
 
@@ -621,7 +581,7 @@ function loadMoneyData() {
                 html += '<div class="money-section-title">最近支出</div>';
                 data.recentExpenses.forEach(e => {
                     const time = new Date(e.created_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
-                    html += `<div class="money-expense-item"><span>${time}</span><span>${e.category}</span><span>${e.description || ''}</span><span class="money-expense-amount">-$${parseFloat(e.amount).toFixed(2)}</span></div>`;
+                    html += `<div class="money-expense-item"><span>${esc(time)}</span><span>${esc(e.category)}</span><span>${esc(e.description)}</span><span class="money-expense-amount">-$${parseFloat(e.amount).toFixed(2)}</span></div>`;
                 });
             }
 
@@ -662,7 +622,7 @@ function initFoodLogPanel() {
         }
     });
 
-    document.querySelector('#food-log-panel .panel-close').addEventListener('click', () => {
+    document.querySelector('#food-log-panel .panel-close')?.addEventListener('click', () => {
         document.getElementById('food-log-panel').classList.add('hidden');
     });
 }
@@ -712,8 +672,8 @@ function loadFoodLogData() {
 
                     html += `<div class="food-item">
                         <span class="food-time">${time}</span>
-                        <span class="food-meal">${f.meal || ''}</span>
-                        <span class="food-content">${f.content || ''}</span>
+                        <span class="food-meal">${esc(f.meal)}</span>
+                        <span class="food-content">${esc(f.content)}</span>
                         <span class="food-tag ${tagClass}">${tagText}</span>
                         <span class="food-cost ${costClass}">${costText}</span>
                         <span class="food-del" data-id="${f.id}">&times;</span>
@@ -756,7 +716,7 @@ function initVitalsPanel() {
         }
     });
 
-    document.querySelector('#vitals-panel .panel-close').addEventListener('click', () => {
+    document.querySelector('#vitals-panel .panel-close')?.addEventListener('click', () => {
         document.getElementById('vitals-panel').classList.add('hidden');
     });
 }

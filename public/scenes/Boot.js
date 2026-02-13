@@ -10,6 +10,12 @@ class BootScene extends Phaser.Scene {
         this.load.spritesheet('interiors', 'assets/modern-interiors/Interiors_free_16x16.png', {
             frameWidth: 16, frameHeight: 16
         });
+        this.load.spritesheet('fantasy', 'assets/fantasy/fantasy-interiors.png', {
+            frameWidth: 16, frameHeight: 16
+        });
+        this.load.spritesheet('fantasy-floor', 'assets/fantasy/fantasy-floors.png', {
+            frameWidth: 16, frameHeight: 16
+        });
         this.load.image('floorswalls', 'assets/lrk/floorswalls_LRK.png');
     }
 

@@ -27,71 +27,57 @@ class HomeScene extends Phaser.Scene {
         const PRESETS = {
             default: {
                 rooms: {
-                    'piano-room':  { x: 1,  y: 1, w: 8, h: 8,  color: 0xfce8e4, label: '🎹 琴房',      entry: { x: 5, y: 5 } },
-                    'awen-room':   { x: 11, y: 1, w: 9, h: 8,  color: 0xeceef8, label: '📚 阿文的房间', entry: { x: 15, y: 5 } },
-                    'living-room': { x: 1,  y: 11,w: 8, h: 8,  color: 0xfdf5e4, label: '🛋️ 客厅',       entry: { x: 5, y: 15 } },
-                    'kitchen':     { x: 11, y: 11,w: 9, h: 8,  color: 0xe8f4e4, label: '🍳 厨房',       entry: { x: 15, y: 15 } },
-                    'bathroom':    { x: 22, y: 11,w: 7, h: 8,  color: 0xe4eff8, label: '🚿 卫生间',     entry: { x: 25, y: 15 } },
-                    'outdoor':     { x: 22, y: 1, w: 7, h: 8,  color: 0xd0e8c8, label: '🌿 外出',       entry: { x: 25, y: 4 } }
+                    'piano-room':  { x: 1,  y: 1, w: 8, h: 8,  color: 0xfce8e4, label: '💻 大宝的工作室', entry: { x: 5, y: 5 } },
+                    'awen-room':   { x: 11, y: 1, w: 9, h: 8,  color: 0xeceef8, label: '📚 阿文的房间',   entry: { x: 15, y: 5 } },
+                    'living-room': { x: 1,  y: 11,w: 13, h: 8, color: 0xfdf5e4, label: '🛋️ 客厅',         entry: { x: 7, y: 15 } },
+                    'kitchen':     { x: 16, y: 11,w: 5, h: 4,  color: 0xe8f4e4, label: '🍳 厨房',         entry: { x: 18, y: 13 } },
+                    'bathroom':    { x: 22, y: 11,w: 5, h: 4,  color: 0xe4eff8, label: '🚿 卫生间',       entry: { x: 24, y: 13 } },
+                    'outdoor':     { x: 22, y: 1, w: 7, h: 8,  color: 0xd0e8c8, label: '🌿 外出',         entry: { x: 25, y: 4 } }
                 },
                 corridors: [
-                    { x: 8,  y: 3,  w: 4, h: 3 },
-                    { x: 8,  y: 12, w: 4, h: 3 },
-                    { x: 4,  y: 8,  w: 2, h: 4 },
-                    { x: 14, y: 8,  w: 2, h: 4 },
-                    { x: 19, y: 12, w: 4, h: 3 },
-                    { x: 19, y: 3,  w: 4, h: 3 },  // awen-room ↔ outdoor
-                    { x: 24, y: 8,  w: 2, h: 4 },  // outdoor ↔ bathroom (vertical)
+                    { x: 8,  y: 3,  w: 4, h: 3 },   // 工作室 ↔ 阿文房间
+                    { x: 13, y: 12, w: 4, h: 3 },    // 客厅 ↔ 厨房
+                    { x: 4,  y: 8,  w: 2, h: 4 },    // 工作室 ↔ 客厅
+                    { x: 15, y: 8,  w: 2, h: 4 },    // 阿文房间 ↔ 客厅/厨房
+                    { x: 20, y: 12, w: 3, h: 2 },    // 厨房 ↔ 卫生间
+                    { x: 19, y: 3,  w: 4, h: 3 },    // 阿文房间 ↔ 外出
+                    { x: 24, y: 8,  w: 2, h: 4 },    // 外出 ↔ 卫生间
                 ],
                 doors: [
-                    // 琴房 ↔ 阿文房间（上方走廊）
-                    { x: 9,  y: 4, w: 2, h: 1, type: 'horizontal' },
-                    // 琴房 ↔ 客厅（左侧走廊）
-                    { x: 5,  y: 9, w: 1, h: 2, type: 'vertical' },
-                    // 客厅 ↔ 厨房（中间走廊）
-                    { x: 9, y: 13, w: 2, h: 1, type: 'horizontal' },
-                    // 阿文房间 ↔ 厨房（右侧走廊）
-                    { x: 15, y: 9, w: 1, h: 2, type: 'vertical' },
-                    // 厨房 ↔ 卫生间
-                    { x: 20, y: 13, w: 2, h: 1, type: 'horizontal' },
-                    // 阿文房间 ↔ 外出
-                    { x: 20, y: 4, w: 2, h: 1, type: 'horizontal' },
-                    // 外出 ↔ 卫生间
-                    { x: 25, y: 9, w: 1, h: 2, type: 'vertical' }
+                    { x: 9,  y: 4, w: 2, h: 1, type: 'horizontal' },  // 工作室 ↔ 阿文房间
+                    { x: 5,  y: 9, w: 1, h: 2, type: 'vertical' },    // 工作室 ↔ 客厅
+                    { x: 14, y: 13, w: 2, h: 1, type: 'horizontal' }, // 客厅 ↔ 厨房
+                    { x: 16, y: 9, w: 1, h: 2, type: 'vertical' },    // 阿文房间 ↔ 客厅
+                    { x: 21, y: 13, w: 1, h: 1, type: 'horizontal' }, // 厨房 ↔ 卫生间
+                    { x: 20, y: 4, w: 2, h: 1, type: 'horizontal' },  // 阿文房间 ↔ 外出
+                    { x: 25, y: 9, w: 1, h: 2, type: 'vertical' }     // 外出 ↔ 卫生间
                 ]
             },
             cozy: {
                 rooms: {
-                    'piano-room':  { x: 1,  y: 1, w: 9, h: 10, color: 0xfce8e4, label: '🎹 琴房',      entry: { x: 5, y: 6 } },
-                    'awen-room':   { x: 12, y: 1, w: 9, h: 10, color: 0xeceef8, label: '📚 阿文的房间', entry: { x: 16, y: 6 } },
-                    'living-room': { x: 1,  y: 13,w: 9, h: 7,  color: 0xfdf5e4, label: '🛋️ 客厅',       entry: { x: 5, y: 16 } },
-                    'kitchen':     { x: 12, y: 13,w: 9, h: 7,  color: 0xe8f4e4, label: '🍳 厨房',       entry: { x: 16, y: 16 } },
-                    'bathroom':    { x: 22, y: 11,w: 7, h: 9,  color: 0xe4eff8, label: '🚿 卫生间',     entry: { x: 25, y: 15 } },
-                    'outdoor':     { x: 22, y: 1, w: 7, h: 8,  color: 0xd0e8c8, label: '🌿 外出',       entry: { x: 25, y: 4 } }
+                    'piano-room':  { x: 1,  y: 1, w: 9, h: 10, color: 0xfce8e4, label: '💻 大宝的工作室', entry: { x: 5, y: 6 } },
+                    'awen-room':   { x: 12, y: 1, w: 9, h: 10, color: 0xeceef8, label: '📚 阿文的房间',   entry: { x: 16, y: 6 } },
+                    'living-room': { x: 1,  y: 13,w: 14, h: 7, color: 0xfdf5e4, label: '🛋️ 客厅',         entry: { x: 7, y: 16 } },
+                    'kitchen':     { x: 17, y: 13,w: 5, h: 4,  color: 0xe8f4e4, label: '🍳 厨房',         entry: { x: 19, y: 15 } },
+                    'bathroom':    { x: 22, y: 13,w: 5, h: 4,  color: 0xe4eff8, label: '🚿 卫生间',       entry: { x: 24, y: 15 } },
+                    'outdoor':     { x: 22, y: 1, w: 7, h: 8,  color: 0xd0e8c8, label: '🌿 外出',         entry: { x: 25, y: 4 } }
                 },
                 corridors: [
                     { x: 9,  y: 3,  w: 4, h: 3 },
-                    { x: 9,  y: 13, w: 4, h: 2 },
+                    { x: 14, y: 14, w: 4, h: 2 },
                     { x: 4,  y: 10, w: 2, h: 4 },
                     { x: 15, y: 10, w: 2, h: 4 },
-                    { x: 20, y: 13, w: 3, h: 3 },
-                    { x: 20, y: 3,  w: 3, h: 3 },  // awen-room ↔ outdoor
-                    { x: 24, y: 8,  w: 2, h: 4 },  // outdoor ↔ bathroom (vertical)
+                    { x: 21, y: 14, w: 2, h: 2 },
+                    { x: 20, y: 3,  w: 3, h: 3 },
+                    { x: 24, y: 8,  w: 2, h: 4 },
                 ],
                 doors: [
-                    // 琴房 ↔ 阿文房间
                     { x: 10,  y: 4, w: 2, h: 1, type: 'horizontal' },
-                    // 琴房 ↔ 客厅
                     { x: 5,  y: 11, w: 1, h: 2, type: 'vertical' },
-                    // 客厅 ↔ 厨房
-                    { x: 10, y: 14, w: 2, h: 1, type: 'horizontal' },
-                    // 阿文房间 ↔ 厨房
+                    { x: 15, y: 15, w: 2, h: 1, type: 'horizontal' },
                     { x: 16, y: 11, w: 1, h: 2, type: 'vertical' },
-                    // 厨房 ↔ 卫生间
-                    { x: 21, y: 14, w: 2, h: 1, type: 'horizontal' },
-                    // 阿文房间 ↔ 外出
+                    { x: 22, y: 15, w: 1, h: 1, type: 'horizontal' },
                     { x: 21, y: 4, w: 2, h: 1, type: 'horizontal' },
-                    // 外出 ↔ 卫生间
                     { x: 25, y: 9, w: 1, h: 2, type: 'vertical' }
                 ]
             }
@@ -159,17 +145,14 @@ class HomeScene extends Phaser.Scene {
         this.drawDoors(doorGfx, TS);
 
         // ============================================
-        // Floor textures (LRK tileset, depth 1)
+        // Floor textures (procedural, depth 1)
         // ============================================
-        if (this.textures.exists('floorswalls')) {
-            this.addFloorTextures(TS);
-        }
+        this.addFloorTextures(TS);
 
         // ============================================
-        // Draw furniture (simple decorative, depth 3)
+        // Draw furniture (fantasy tileset sprites, depth 3)
         // ============================================
-        const gfxDeco = this.add.graphics().setDepth(3);
-        this.drawFurniture(gfxDeco, TS);
+        this.drawDefaultFurniture(TS);
 
         // ============================================
         // Room labels
@@ -234,10 +217,23 @@ class HomeScene extends Phaser.Scene {
             const tileY = Math.floor(pointer.worldY / TS);
 
             if (this.editMode) {
+                // Don't place on palette area or while dragging palette
+                if (this._palDragging) return;
+                if (this._isOverPalette(pointer.worldX, pointer.worldY)) return;
+                // Use 16px sub-grid for furniture placement (matches sprite native size)
+                const subX = Math.floor(pointer.worldX / TILE_SIZE);
+                const subY = Math.floor(pointer.worldY / TILE_SIZE);
                 if (pointer.button === 2) {
-                    this.removeFurnitureAt(tileX, tileY);
-                } else if (this.selectedFrame >= 0) {
-                    this.placeFurnitureTile(tileX, tileY, this.selectedFrame);
+                    // Remove all tiles in the selection area
+                    const sw = this._selectionWidth || 1;
+                    const sh = this._selectionHeight || 1;
+                    for (let dr = 0; dr < sh; dr++)
+                        for (let dc = 0; dc < sw; dc++)
+                            this.removeFurnitureAt(subX + dc, subY + dr);
+                } else if (this._selectedFrames && this._selectedFrames.length > 0) {
+                    for (const { dc, dr, frame } of this._selectedFrames) {
+                        this.placeFurnitureTile(subX + dc, subY + dr, frame);
+                    }
                 }
                 return;
             }
@@ -261,197 +257,121 @@ class HomeScene extends Phaser.Scene {
     }
 
     // ----------------------------------------
-    // Floor textures from LRK tileset
-    // Pixel positions in floorswalls_LRK.png (224×256):
-    //   Top section: 3 wall styles (row 1, y≈5) + 3 floor styles (row 2, y≈80)
-    //   Bottom section: 4 color-variant floor styles (y≈156)
-    //   Each swatch ≈ 64×64, gaps ≈ 11px, margin ≈ 5px
+    // Procedural floor patterns (seamless, no tileset needed)
     // ----------------------------------------
     addFloorTextures(TS) {
-        const fw = this.textures.get('floorswalls');
+        const floorGfx = this.add.graphics().setDepth(1);
 
-        // Register named frame regions (source x, y, w, h) if not already added
-        const FRAMES = {
-            'fw-floor-warm': [5,   80, 64, 64],  // warm orange/wood planks
-            'fw-floor-gray': [80,  80, 64, 64],  // gray stone/tile
-            'fw-floor-dark': [155, 80, 64, 64],  // dark rich wood
-            'fw-floor-sage': [5,  156, 48, 48],  // sage green tile (bottom section)
-            'fw-floor-pink': [59, 156, 48, 48],  // soft pink tile
-        };
-        for (const [name, [x, y, w, h]] of Object.entries(FRAMES)) {
-            if (!fw.has(name)) fw.add(name, 0, x, y, w, h);
-        }
-
-        // Room → floor tile mapping
+        // Room floor style: 'wood-light', 'wood-dark', 'tile-white', 'tile-blue'
         const ROOM_FLOOR = {
-            'piano-room':  'fw-floor-warm',
-            'awen-room':   'fw-floor-dark',
-            'living-room': 'fw-floor-warm',
-            'kitchen':     'fw-floor-gray',
-            'bathroom':    'fw-floor-gray',
+            'piano-room':  'wood-light',
+            'awen-room':   'wood-dark',
+            'living-room': 'wood-light',
+            'kitchen':     'tile-white',
+            'bathroom':    'tile-blue',
             'outdoor':     null,
         };
 
         for (const [id, r] of Object.entries(this.roomDefs)) {
-            const frame = ROOM_FLOOR[id];
-            if (!frame) continue;
-            this.add.tileSprite(
-                r.x * TS, r.y * TS,
-                r.w * TS, r.h * TS,
-                'floorswalls', frame
-            ).setOrigin(0, 0).setDepth(1).setAlpha(0.55);
+            const style = ROOM_FLOOR[id];
+            if (!style) continue;
+            const rx = r.x * TS, ry = r.y * TS;
+            const rw = r.w * TS, rh = r.h * TS;
+
+            if (style.startsWith('wood')) {
+                // Wood plank floor — horizontal planks with staggered joints
+                const dark = style === 'wood-dark';
+                const plankH = 8; // plank height in px
+                const colors = dark
+                    ? [0x7A654A, 0x8B7355, 0x806B4F, 0x917B5C]
+                    : [0xBFA07A, 0xC4A882, 0xCAB08A, 0xB89870];
+
+                for (let py = ry; py < ry + rh; py += plankH) {
+                    const row = Math.floor((py - ry) / plankH);
+                    const color = colors[row % colors.length];
+                    floorGfx.fillStyle(color, 1);
+                    floorGfx.fillRect(rx, py, rw, plankH);
+                    // Plank gap line
+                    floorGfx.fillStyle(dark ? 0x5C4A35 : 0xA08060, 0.4);
+                    floorGfx.fillRect(rx, py + plankH - 1, rw, 1);
+                    // Staggered vertical joints
+                    const offset = (row % 2) * 40;
+                    for (let jx = rx + offset; jx < rx + rw; jx += 80) {
+                        floorGfx.fillRect(jx, py, 1, plankH);
+                    }
+                }
+            } else {
+                // Tile floor — grid pattern
+                const blue = style === 'tile-blue';
+                const tileSize = 16;
+                const c1 = blue ? 0xD8E8F0 : 0xF0ECE6;
+                const c2 = blue ? 0xC8DCE8 : 0xE8E2D8;
+                const gap = blue ? 0xA0B8C8 : 0xCCC4B8;
+
+                for (let ty = ry; ty < ry + rh; ty += tileSize) {
+                    for (let tx = rx; tx < rx + rw; tx += tileSize) {
+                        const checker = ((tx - rx) / tileSize + (ty - ry) / tileSize) % 2 === 0;
+                        floorGfx.fillStyle(checker ? c1 : c2, 1);
+                        floorGfx.fillRect(tx, ty, tileSize, tileSize);
+                    }
+                }
+                // Grout lines
+                floorGfx.lineStyle(1, gap, 0.5);
+                for (let ty = ry; ty <= ry + rh; ty += tileSize) {
+                    floorGfx.lineBetween(rx, ty, rx + rw, ty);
+                }
+                for (let tx = rx; tx <= rx + rw; tx += tileSize) {
+                    floorGfx.lineBetween(tx, ry, tx, ry + rh);
+                }
+            }
         }
     }
 
     // ----------------------------------------
-    // Draw simple furniture decorations
+    // Fantasy tileset frame helper
+    // Combined sheet: 4 packs of 768×768 stacked vertically (768×3072)
+    // 48 cols × 192 rows of 16×16 frames
+    // Each RPG Maker tile = 3×3 sub-tiles at 16×16
+    // pack: 0=幻想室内1, 1=幻想室内2, 2=幻想室内3, 3=幻想室内4
     // ----------------------------------------
-    drawFurniture(gfx, TS) {
-        const fcolor = 0x8c6048;  // warm brown wood
-        const acolor = 0xa07858;  // medium warm wood
+    fantasyFrame(pack, rmRow, rmCol, dx, dy) {
+        return (pack * 48 + rmRow * 3 + dy) * 48 + (rmCol * 3 + dx);
+    }
 
-        // Piano (piano-room, top-right area)
-        gfx.fillStyle(0x2a1810, 1);  // dark mahogany
-        gfx.fillRect(2 * TS, 2 * TS, 4 * TS, 2 * TS);   // piano body
-        gfx.fillStyle(0xeeeebb, 0.8);
-        gfx.fillRect(2 * TS + 4, 2 * TS + 4, 4 * TS - 8, TS - 8); // keys area
-        // Black keys
-        gfx.fillStyle(0x111111, 1);
-        for (let i = 0; i < 6; i++) {
-            gfx.fillRect(2 * TS + 8 + i * 10, 2 * TS + 4, 6, TS - 14);
+    // Place a rectangular sub-region from the fantasy spritesheet at native 16px scale
+    // pack: which B sheet (0-3)
+    // srcCol, srcRow: top-left sub-tile in 48-col grid (within that pack's 48 rows)
+    // w, h: size in sub-tiles (16px each on screen)
+    // tx, ty: destination game tile position (top-left anchor)
+    placeRegion(pack, srcCol, srcRow, w, h, tx, ty, depth) {
+        const TS = TILE_SIZE * SCALE; // 32
+        for (let dy = 0; dy < h; dy++) {
+            for (let dx = 0; dx < w; dx++) {
+                const frame = (pack * 48 + srcRow + dy) * 48 + (srcCol + dx);
+                this.add.sprite(
+                    tx * TS + dx * 16 + 8,
+                    ty * TS + dy * 16 + 8,
+                    'fantasy', frame
+                ).setScale(1).setDepth(depth || 3);
+            }
         }
-        // Bench
-        gfx.fillStyle(fcolor, 1);
-        gfx.fillRect(2 * TS + 4, 4 * TS, 3 * TS, TS);
+    }
 
-        // Bookshelf (awen-room, left wall)
-        gfx.fillStyle(0x7a4a20, 1);  // warm oak wood
-        gfx.fillRect(11 * TS + 2, 2 * TS, TS + 4, 5 * TS);
-        // Books
-        const bookColors = [0xcc4444, 0x44aacc, 0x88cc44, 0xccaa44, 0x8844cc];
-        for (let i = 0; i < 5; i++) {
-            gfx.fillStyle(bookColors[i], 0.7);
-            gfx.fillRect(11 * TS + 4, (2 + i) * TS + 4, TS, TS - 8);
-        }
+    // Convenience: place full RPG Maker tile (3×3 = 48×48px) at game tile
+    placeRMTile(pack, rmRow, rmCol, tx, ty, depth) {
+        this.placeRegion(pack, rmCol * 3, rmRow * 3, 3, 3, tx, ty, depth);
+    }
 
-        // Desk (awen-room)
-        gfx.fillStyle(fcolor, 1);
-        gfx.fillRect(13 * TS, 2 * TS, 4 * TS, TS + 4);
-        // Monitor
-        gfx.fillStyle(0x1a1a22, 1);
-        gfx.fillRect(15 * TS - 16, 2 * TS + 2, 32, 22);
-        gfx.lineStyle(1, 0x4488aa, 1);
-        gfx.strokeRect(15 * TS - 16, 2 * TS + 2, 32, 22);
-
-        // Sofa (living-room)
-        gfx.fillStyle(0xe8c0b0, 1);  // blush rose sofa
-        gfx.fillRect(2 * TS, 14 * TS, 5 * TS, 2 * TS);   // sofa
-        gfx.fillStyle(0xd4a898, 1);  // slightly darker arms
-        gfx.fillRect(2 * TS, 14 * TS, TS / 2, 2 * TS);   // arm L
-        gfx.fillRect(7 * TS - TS / 2, 14 * TS, TS / 2, 2 * TS); // arm R
-        // Coffee table
-        gfx.fillStyle(acolor, 1);
-        gfx.fillRect(3 * TS, 12 * TS, 3 * TS, TS + 8);
-
-        // TV stand and screen (living-room, top wall)
-        gfx.fillStyle(0x111111, 1);
-        gfx.fillRect(3 * TS, 11 * TS + 2, 3 * TS, 2 * TS - 4);
-        gfx.lineStyle(1, 0x224466, 0.8);
-        gfx.strokeRect(3 * TS, 11 * TS + 2, 3 * TS, 2 * TS - 4);
-
-        // Fridge (kitchen, right side) — interactive zone added in create()
-        const fridgeX = 18 * TS;
-        const fridgeY = 12 * TS + 6;
-        // Body (silver)
-        gfx.fillStyle(0xc8ccd0, 1);
-        gfx.fillRect(fridgeX, fridgeY, TS * 2, TS * 3 + 8);
-        // Outline
-        gfx.lineStyle(2, 0x999da0, 1);
-        gfx.strokeRect(fridgeX, fridgeY, TS * 2, TS * 3 + 8);
-        // Top door (freezer)
-        gfx.fillStyle(0xd4d8dc, 1);
-        gfx.fillRect(fridgeX + 2, fridgeY + 2, TS * 2 - 4, TS + 4);
-        // Bottom door (fridge)
-        gfx.fillStyle(0xdce0e4, 1);
-        gfx.fillRect(fridgeX + 2, fridgeY + TS + 8, TS * 2 - 4, TS * 2 - 4);
-        // Handle
-        gfx.fillStyle(0x888c90, 1);
-        gfx.fillRect(fridgeX + TS * 2 - 8, fridgeY + 6, 3, TS - 2);
-        gfx.fillRect(fridgeX + TS * 2 - 8, fridgeY + TS + 12, 3, TS * 2 - 12);
-        // Divider line
-        gfx.lineStyle(1, 0xa0a4a8, 1);
-        gfx.lineBetween(fridgeX + 2, fridgeY + TS + 6, fridgeX + TS * 2 - 2, fridgeY + TS + 6);
-
-        // Kitchen counter + stove
-        gfx.fillStyle(0xd8c8a8, 1);  // warm cream marble counter
-        gfx.fillRect(11 * TS + 2, 11 * TS + 2, 8 * TS - 4, TS + 4);  // counter top
-        gfx.fillStyle(0xc4b090, 1);  // warm wood cabinets
-        gfx.fillRect(11 * TS + 2, 12 * TS + 6, 4 * TS - 4, 2 * TS);  // lower cabinet
-        // Stove burners
-        gfx.fillStyle(0x2a2020, 1);
-        gfx.lineStyle(1, 0x886644, 1);
-        for (let i = 0; i < 4; i++) {
-            const bx = (12 + Math.floor(i / 2)) * TS;
-            const by = 11 * TS + 4 + (i % 2) * (TS / 2);
-            gfx.strokeCircle(bx, by, 6);
-        }
-
-        // Outdoor - grass ground pattern (brighter green rows)
-        gfx.fillStyle(0x4a9a30, 0.25);
-        for (let ty = 2; ty < 8; ty++) {
-            gfx.fillRect(23 * TS, ty * TS, 6 * TS, TS);
-            ty++; // alternate rows
-        }
-        // Trees (simple circles - vibrant greens)
-        const treePositions = [[23,2],[27,2],[23,6],[27,6],[25,4]];
-        for (const [tx, ty] of treePositions) {
-            gfx.fillStyle(0x2a7a1a, 1);
-            gfx.fillCircle(tx * TS + TS/2, ty * TS + TS/2, TS * 0.7);
-            gfx.fillStyle(0x44aa22, 0.8);
-            gfx.fillCircle(tx * TS + TS/2, ty * TS + TS/2 - 4, TS * 0.5);
-        }
-        // Path (warm stone)
-        gfx.fillStyle(0xd0b880, 1);
-        gfx.fillRect(25 * TS, 2 * TS, TS, 6 * TS);
-
-        // Bathtub (bathroom)
-        gfx.fillStyle(0xe8f2fc, 1);  // light porcelain
-        gfx.fillRect(23 * TS, 12 * TS, 4 * TS, 3 * TS);
-        gfx.lineStyle(2, 0xa8c8e0, 1);
-        gfx.strokeRect(23 * TS, 12 * TS, 4 * TS, 3 * TS);
-        gfx.fillStyle(0xb8daf0, 0.6);  // soft blue water
-        gfx.fillRect(23 * TS + 4, 12 * TS + 4, 4 * TS - 8, 3 * TS - 8);
-
-        // Toilet (bathroom, bottom-right)
-        gfx.fillStyle(0xf0f4f8, 1);  // white porcelain
-        gfx.fillRect(27 * TS, 15 * TS, TS + 8, TS * 2);
-        gfx.lineStyle(1, 0xc8d0d8, 1);
-        gfx.strokeRect(27 * TS, 15 * TS, TS + 8, TS * 2);
-        // Seat
-        gfx.fillStyle(0xe4e8ec, 1);
-        gfx.fillRect(27 * TS + 2, 15 * TS + TS / 2, TS + 4, TS);
-        // Tank
-        gfx.fillStyle(0xd8dce0, 1);
-        gfx.fillRect(27 * TS + 4, 15 * TS + 2, TS, TS / 2 - 2);
-
-        // Bed (awen-room, right side)
-        gfx.fillStyle(0x8c6048, 1);  // wood frame
-        gfx.fillRect(17 * TS, 4 * TS, 3 * TS, 4 * TS);
-        gfx.fillStyle(0xd4e4f8, 1);  // light blue sheets
-        gfx.fillRect(17 * TS + 3, 4 * TS + 3, 3 * TS - 6, 4 * TS - 6);
-        // Pillow
-        gfx.fillStyle(0xf0f4f8, 1);
-        gfx.fillRect(17 * TS + 6, 4 * TS + 6, 2 * TS, TS - 4);
-        // Blanket fold
-        gfx.fillStyle(0xa8c0e0, 0.6);
-        gfx.fillRect(17 * TS + 3, 6 * TS, 3 * TS - 6, 2 * TS - 6);
-
-        // Game console area hint (living-room, near TV)
-        // Small Switch/PS5 on coffee table
-        gfx.fillStyle(0x1a1a2e, 1);
-        gfx.fillRect(3 * TS + 4, 12 * TS + 4, TS - 8, TS / 2);  // console
-        gfx.fillStyle(0x4466aa, 1);
-        gfx.fillRect(3 * TS + 6, 12 * TS + 6, TS / 2 - 4, TS / 2 - 6);  // screen glow
+    // ----------------------------------------
+    // Default furniture layout using fantasy tileset
+    // placeRegion(pack, srcCol, srcRow, w, h, tx, ty)
+    // Sizes match original drawFurniture dimensions
+    // ----------------------------------------
+    drawDefaultFurniture(TS) {
+        // No default furniture — use furniture editor to place items
+        this.bedTileX = 18; this.bedTileY = 4;
+        // Debug: show version info
+        // Debug text removed
     }
 
     // ----------------------------------------
@@ -574,6 +494,9 @@ class HomeScene extends Phaser.Scene {
         char.nameLabel.setPosition(px, py - 26);
         char.actBubble.setPosition(px, py - 38);
         char.emotDot.setPosition(px + 18, py - 18);
+        if (char.speechBubble && char.speechBubble.active) {
+            char.speechBubble.setPosition(px, py - 50);
+        }
     }
 
     // ----------------------------------------
@@ -582,6 +505,9 @@ class HomeScene extends Phaser.Scene {
     moveCharacterToRoom(userName, roomId, activity) {
         const char = this.characters[userName];
         if (!char) return;
+
+        // If character is doing an action move, don't interfere
+        if (char._actionInProgress) return;
 
         const TS = TILE_SIZE * SCALE;
         const roomDef = this.roomDefs[roomId];
@@ -596,10 +522,18 @@ class HomeScene extends Phaser.Scene {
             });
         }
 
-        if (char.currentRoom === roomId) return;
+        if (char.currentRoom === roomId && char._initialized) return;
         char.currentRoom = roomId;
 
         const dest = roomDef.entry;
+
+        // First load: teleport directly, no walking animation
+        if (!char._initialized) {
+            char._initialized = true;
+            this.teleportCharacter(userName, dest.x, dest.y);
+            return;
+        }
+
         const curTileX = Math.floor(char.container.x / TS);
         const curTileY = Math.floor(char.container.y / TS);
 
@@ -617,6 +551,76 @@ class HomeScene extends Phaser.Scene {
         }
     }
 
+    // Move character to a specific action location (pixel coords), then callback
+    moveCharacterToAction(userName, targetPos, activity, callback) {
+        const char = this.characters[userName];
+        if (!char) { if (callback) callback(); return; }
+
+        // Lock: prevent state:update from interfering with this walk
+        char._actionInProgress = true;
+        // Safety timeout: clear flag after 15s in case of exception
+        if (char._actionTimeout) clearTimeout(char._actionTimeout);
+        char._actionTimeout = setTimeout(() => { char._actionInProgress = false; }, 15000);
+
+        const TS = TILE_SIZE * SCALE;
+        const targetTileX = Math.floor(targetPos.x / TS);
+        const targetTileY = Math.floor(targetPos.y / TS);
+        const destPx = targetPos.x;
+        const destPy = targetPos.y;
+
+        // Update current room based on target position
+        const targetRoom = this.getRoomAt(targetTileX, targetTileY);
+        if (targetRoom) {
+            char.currentRoom = targetRoom;
+            fetch('/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user: userName, room: targetRoom })
+            });
+        }
+
+        // Called when walk finishes (or immediately if no walk needed)
+        const onArrival = () => {
+            if (char.bobTween) { char.bobTween.stop(); char.bobTween = null; }
+            this.updateCharPos(char, destPx, destPy);
+            char.bobTween = this.tweens.add({
+                targets: char.container, y: char.container.y - 2,
+                duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            });
+            if (activity) {
+                char.actBubble.setText(activity);
+                char.actBubble.setVisible(true);
+                this.time.delayedCall(8000, () => {
+                    if (char.actBubble) char.actBubble.setVisible(false);
+                });
+            }
+            // Unlock: action move complete
+            if (char._actionTimeout) { clearTimeout(char._actionTimeout); char._actionTimeout = null; }
+            char._actionInProgress = false;
+            if (callback) callback();
+        };
+
+        const curTileX = Math.floor(char.container.x / TS);
+        const curTileY = Math.floor(char.container.y / TS);
+        if (curTileX === targetTileX && curTileY === targetTileY) {
+            onArrival();
+            return;
+        }
+
+        if (this.pathfinder) {
+            this.pathfinder.findPath(curTileX, curTileY, targetTileX, targetTileY, (path) => {
+                if (path && path.length > 1) {
+                    this.walkPath(userName, path, onArrival);
+                } else {
+                    onArrival();
+                }
+            });
+            this.pathfinder.calculate();
+        } else {
+            onArrival();
+        }
+    }
+
     teleportCharacter(userName, tileX, tileY) {
         const char = this.characters[userName];
         if (!char) return;
@@ -631,14 +635,18 @@ class HomeScene extends Phaser.Scene {
         });
     }
 
-    walkPath(userName, path) {
+    walkPath(userName, path, onComplete) {
         const char = this.characters[userName];
-        if (!char || path.length < 2) return;
+        if (!char || path.length < 2) { if (onComplete) onComplete(); return; }
+        // Cancel any in-progress walk step tween
+        if (char._walkTween) { char._walkTween.stop(); char._walkTween = null; }
         // Stop bob tween while walking
         if (char.bobTween) { char.bobTween.stop(); char.bobTween = null; }
+        char._walkComplete = null; // discard old callback
         char.isMoving  = true;
         char.path      = path;
         char.pathIndex = 1;
+        char._walkComplete = onComplete || null;
         this.walkNextStep(userName);
     }
 
@@ -647,11 +655,17 @@ class HomeScene extends Phaser.Scene {
         if (!char || char.pathIndex >= char.path.length) {
             if (char) {
                 char.isMoving = false;
-                // Restart bob tween at the arrived position
-                char.bobTween = this.tweens.add({
-                    targets: char.container, y: char.container.y - 2,
-                    duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-                });
+                if (char._walkComplete) {
+                    const cb = char._walkComplete;
+                    char._walkComplete = null;
+                    cb();
+                } else {
+                    // Default: restart bob tween at the arrived position
+                    char.bobTween = this.tweens.add({
+                        targets: char.container, y: char.container.y - 2,
+                        duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                    });
+                }
             }
             return;
         }
@@ -661,7 +675,7 @@ class HomeScene extends Phaser.Scene {
         const tx   = step.x * TS + TS / 2;
         const ty   = step.y * TS + TS / 2;
 
-        this.tweens.add({
+        char._walkTween = this.tweens.add({
             targets: char.container,
             x: tx, y: ty,
             duration: 120,
@@ -670,6 +684,7 @@ class HomeScene extends Phaser.Scene {
                 this.updateCharPos(char, char.container.x, char.container.y);
             },
             onComplete: () => {
+                char._walkTween = null;
                 char.pathIndex++;
                 this.walkNextStep(userName);
             }
@@ -783,15 +798,16 @@ class HomeScene extends Phaser.Scene {
     }
 
     renderFurniture() {
-        const TS = TILE_SIZE * SCALE;
         if (this.furnitureGroup) this.furnitureGroup.clear(true, true);
         for (const item of this.furnitureData) {
+            const sheetKey = item.sheet || 'fantasy';
+            // Position on 16px sub-grid (native tile size)
             const spr = this.add.sprite(
-                item.tx * TS + TS / 2,
-                item.ty * TS + TS / 2,
-                'interiors',
+                item.tx * TILE_SIZE + TILE_SIZE / 2,
+                item.ty * TILE_SIZE + TILE_SIZE / 2,
+                sheetKey,
                 item.frame
-            ).setScale(SCALE).setDepth(15);
+            ).setScale(1).setDepth(15);
 
             // Apply rotation if angle is specified
             if (item.angle) {
@@ -807,13 +823,13 @@ class HomeScene extends Phaser.Scene {
 
     placeFurnitureTile(tileX, tileY, frame) {
         this.removeFurnitureAt(tileX, tileY);
-        const TS = TILE_SIZE * SCALE;
+        // Position on 16px sub-grid (native tile size)
         const spr = this.add.sprite(
-            tileX * TS + TS / 2,
-            tileY * TS + TS / 2,
-            'interiors',
+            tileX * TILE_SIZE + TILE_SIZE / 2,
+            tileY * TILE_SIZE + TILE_SIZE / 2,
+            'fantasy',
             frame
-        ).setScale(SCALE).setDepth(15);
+        ).setScale(1).setDepth(15);
 
         // Apply current rotation angle
         if (this.currentAngle !== 0) {
@@ -933,6 +949,7 @@ class HomeScene extends Phaser.Scene {
         const schedZone = this.add.zone(sbx + TS, sby + TS - 2, TS * 2, TS * 2 - 4)
             .setInteractive({ useHandCursor: true }).setDepth(5);
         schedZone.on('pointerdown', (ptr) => {
+            if (this.editMode) return;
             ptr.event.stopPropagation();
             this.interactionHandled = true;
             this.showSchedulePopup();
@@ -943,59 +960,99 @@ class HomeScene extends Phaser.Scene {
         const fridgeZone = this.add.zone(fridgeX + TS, fridgeY + TS * 1.5 + 4, TS * 2, TS * 3 + 8)
             .setInteractive({ useHandCursor: true }).setDepth(5);
         fridgeZone.on('pointerdown', (ptr) => {
+            if (this.editMode) return;
             ptr.event.stopPropagation();
             this.interactionHandled = true;
             this.showFridgePopup();
         });
 
         // ====== Phase 2: 模拟人生交互对象 ======
+        // Helper: create interactive zone with visual marker
+        // Character moves to zone center (x, y) when performing actions
+        const makeZone = (x, y, w, h, markerEmoji, title, desc, actions) => {
+            // Visual marker (pulsing dot)
+            const marker = this.add.circle(x, y, 4, 0xff6b6b, 0.7).setDepth(50);
+            this.tweens.add({ targets: marker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+            this.add.text(x - 6, y - 16, markerEmoji, { fontSize: '10px' }).setDepth(50);
 
-        // Bathtub (bathroom) - 洗澡/上厕所
-        const bathZone = this.add.zone(25 * TS, 13.5 * TS, 4 * TS, 3 * TS)
-            .setInteractive({ useHandCursor: true }).setDepth(5);
-        bathZone.on('pointerdown', (ptr) => {
-            ptr.event.stopPropagation();
-            this.interactionHandled = true;
-            this.showActionPopup('🚿 浴室', '洗个澡恢复卫生值', [
+            const zone = this.add.zone(x, y, w, h)
+                .setInteractive({ useHandCursor: true }).setDepth(5);
+            zone.on('pointerdown', (ptr) => {
+                if (this.editMode) return; // allow furniture placement on zones
+                ptr.event.stopPropagation();
+                this.interactionHandled = true;
+                this.showActionPopup(title, desc, actions, { x, y });
+            });
+            return zone;
+        };
+
+        // Helper: compute zone center from room definition + offset
+        const roomCenter = (roomId, offX, offY) => {
+            const r = this.roomDefs[roomId];
+            if (!r) return { x: 0, y: 0 };
+            return {
+                x: (r.x + r.w / 2 + (offX || 0)) * TS,
+                y: (r.y + r.h / 2 + (offY || 0)) * TS
+            };
+        };
+
+        // 🚿 Bathroom - 洗澡/上厕所
+        const bath = roomCenter('bathroom');
+        makeZone(bath.x, bath.y, 3 * TS, 2 * TS, '🚿',
+            '🚿 浴室', '洗个澡恢复卫生值', [
                 { label: '洗澡', action: 'shower', icon: '🚿' },
                 { label: '上厕所', action: 'toilet', icon: '🚽' }
             ]);
-        });
 
-        // TV / Sofa (living-room) - 看剧
-        const tvZone = this.add.zone(4.5 * TS, 12 * TS, 3 * TS, 2 * TS)
-            .setInteractive({ useHandCursor: true }).setDepth(5);
-        tvZone.on('pointerdown', (ptr) => {
-            ptr.event.stopPropagation();
-            this.interactionHandled = true;
-            this.showActionPopup('📺 客厅娱乐', '放松一下', [
+        // 📺 TV / Sofa (living-room) - 看剧 (left side of living room)
+        const lr = this.roomDefs['living-room'];
+        const tvX = (lr.x + 3) * TS, tvY = (lr.y + 2) * TS;
+        makeZone(tvX, tvY, 3 * TS, 2 * TS, '📺',
+            '📺 客厅娱乐', '放松一下', [
                 { label: '看剧', action: 'tv', icon: '📺' },
                 { label: '打游戏', action: 'game', icon: '🎮' }
             ]);
-        });
 
-        // Bed (awen-room) - 睡觉
-        const bedZone = this.add.zone(17.5 * TS, 5.5 * TS, 3 * TS, 3 * TS)
-            .setInteractive({ useHandCursor: true }).setDepth(5);
-        bedZone.on('pointerdown', (ptr) => {
-            ptr.event.stopPropagation();
-            this.interactionHandled = true;
-            this.showActionPopup('🛏️ 床', '休息一下', [
+        // 🛏️ Bed (awen-room) - 睡觉 (upper-right area of room)
+        const ar = this.roomDefs['awen-room'];
+        const bedX = (ar.x + ar.w - 2.5) * TS, bedY = (ar.y + 2) * TS;
+        makeZone(bedX, bedY, 3 * TS, 3 * TS, '🛏️',
+            '🛏️ 床', '休息一下', [
                 { label: '睡觉', action: 'sleep', icon: '😴' }
             ]);
-        });
 
-        // Water tap (kitchen counter area) - 喝水
-        const waterZone = this.add.zone(15 * TS, 12 * TS, 3 * TS, 2 * TS)
-            .setInteractive({ useHandCursor: true }).setDepth(5);
-        waterZone.on('pointerdown', (ptr) => {
-            ptr.event.stopPropagation();
-            this.interactionHandled = true;
-            this.showActionPopup('🚰 厨房', '补充水分', [
+        // 🚰 Water tap (kitchen) - 喝水
+        const kit = roomCenter('kitchen');
+        makeZone(kit.x, kit.y, 3 * TS, 2 * TS, '💧',
+            '🚰 厨房', '补充水分', [
                 { label: '喝水', action: 'drink_water', icon: '💧' },
                 { label: '泡咖啡', action: 'drink_coffee', icon: '☕' }
             ]);
-        });
+
+        // 🎹 Piano (大宝的工作室) - 练琴 (upper-left area of room)
+        const pr = this.roomDefs['piano-room'];
+        const pianoX = (pr.x + 2) * TS, pianoY = (pr.y + 2) * TS;
+        makeZone(pianoX, pianoY, 3 * TS, 2 * TS, '🎹',
+            '🎹 钢琴', '来弹首曲子', [
+                { label: '认真练琴', action: 'piano_serious', icon: '🎵' },
+                { label: '随便弹弹', action: 'piano_casual', icon: '🎶' }
+            ]);
+
+        // 💻 Computer (大宝的工作室) - 电脑 (upper-right area of room)
+        const compX = (pr.x + 5) * TS, compY = (pr.y + 2) * TS;
+        makeZone(compX, compY, 3 * TS, 2 * TS, '💻',
+            '💻 电脑', '打开电脑', [
+                { label: '玩电脑', action: 'computer_play', icon: '🎮' },
+                { label: '工作', action: 'computer_work', icon: '📊' }
+            ]);
+
+        // 🧊 Fridge marker (already has separate zone above)
+        const fridgeMarker = this.add.circle(fridgeX + TS, fridgeY + TS * 1.5, 4, 0xff6b6b, 0.7).setDepth(50);
+        this.tweens.add({ targets: fridgeMarker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+        // 📋 Schedule marker
+        const schedMarker = this.add.circle(sbx + TS, sby + TS, 4, 0xff6b6b, 0.7).setDepth(50);
+        this.tweens.add({ targets: schedMarker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
     }
 
     showSchedulePopup() {
@@ -1064,7 +1121,7 @@ class HomeScene extends Phaser.Scene {
     // ----------------------------------------
     // Phase 2: Action popup (模拟人生交互)
     // ----------------------------------------
-    showActionPopup(title, desc, actions) {
+    showActionPopup(title, desc, actions, targetPos) {
         const popup = document.getElementById('action-popup');
         const titleEl = document.getElementById('action-popup-title');
         const descEl = document.getElementById('action-popup-desc');
@@ -1111,7 +1168,14 @@ class HomeScene extends Phaser.Scene {
             btn.onclick = () => {
                 popup.classList.add('hidden');
                 gameState.currentUser = selectedChar;
-                this.executeAction(act.action);
+                // Move character to the action location first, then execute
+                if (targetPos) {
+                    this.moveCharacterToAction(selectedChar, targetPos, act.label, () => {
+                        this.executeAction(act.action);
+                    });
+                } else {
+                    this.executeAction(act.action);
+                }
             };
             btnsEl.appendChild(btn);
         }
@@ -1156,11 +1220,15 @@ class HomeScene extends Phaser.Scene {
     executeDabaoAction(action) {
         const desc = {
             shower: '洗澡中', toilet: '上厕所', sleep: '在阿文床上躺着',
-            game: '玩游戏', tv: '看剧', drink_water: '喝水', drink_coffee: '喝咖啡'
+            game: '玩游戏', tv: '看剧', drink_water: '喝水', drink_coffee: '喝咖啡',
+            piano_serious: '认真练琴', piano_casual: '随便弹弹',
+            computer_play: '玩电脑', computer_work: '在工作'
         };
         const rooms = {
             shower: 'bathroom', toilet: 'bathroom', sleep: 'awen-room',
-            game: 'living-room', tv: 'living-room', drink_water: 'kitchen', drink_coffee: 'kitchen'
+            game: 'living-room', tv: 'living-room', drink_water: 'kitchen', drink_coffee: 'kitchen',
+            piano_serious: 'piano-room', piano_casual: 'piano-room',
+            computer_play: 'piano-room', computer_work: 'piano-room'
         };
 
         fetch('/custom-status', {
@@ -1170,48 +1238,282 @@ class HomeScene extends Phaser.Scene {
         });
     }
 
+    // Update palette highlight rectangle during drag selection
+    _updatePalHighlight() {
+        if (this.paletteHighlight) this.paletteHighlight.destroy();
+        const TS = this._palTS;
+        const s = this._palSelStart;
+        const e = this._palSelEnd;
+        const c1 = Math.min(s.col, e.col);
+        const r1 = Math.min(s.row, e.row);
+        const c2 = Math.max(s.col, e.col);
+        const r2 = Math.max(s.row, e.row);
+        const w = (c2 - c1 + 1) * TS;
+        const h = (r2 - r1 + 1) * TS;
+        const x = this._palContentX + c1 * TS + w / 2;
+        const y = this._palContentY + r1 * TS + h / 2;
+        this.paletteHighlight = this.add.rectangle(x, y, w, h)
+            .setStrokeStyle(2, 0xffff00, 1)
+            .setFillStyle(0xffff00, 0.15)
+            .setDepth(253);
+        this.paletteContainer.add(this.paletteHighlight);
+    }
+
+    // Finalize palette selection: compute frames array and update cursor
+    _finalizePalSelection() {
+        const s = this._palSelStart;
+        const e = this._palSelEnd;
+        const c1 = Math.min(s.col, e.col);
+        const r1 = Math.min(s.row, e.row);
+        const c2 = Math.max(s.col, e.col);
+        const r2 = Math.max(s.row, e.row);
+
+        this._selectedFrames = [];
+        for (let r = r1; r <= r2; r++) {
+            for (let c = c1; c <= c2; c++) {
+                const frame = (this.palettePack * this._srcRows + r) * this._srcCols + c;
+                this._selectedFrames.push({ dc: c - c1, dr: r - r1, frame });
+            }
+        }
+
+        this._selectionWidth = c2 - c1 + 1;
+        this._selectionHeight = r2 - r1 + 1;
+
+        // Resize edit cursor to match selection
+        const S = TILE_SIZE;
+        if (this.editCursor) {
+            this.editCursor.setSize(this._selectionWidth * S, this._selectionHeight * S);
+        }
+
+        const info = document.getElementById('selected-tile-info');
+        if (info) {
+            const n = this._selectedFrames.length;
+            info.textContent = n === 1
+                ? `Pack${this.palettePack + 1} #${this._selectedFrames[0].frame}`
+                : `Pack${this.palettePack + 1} ${this._selectionWidth}×${this._selectionHeight} (${n})`;
+        }
+    }
+
+    // Check if world coordinates are over the palette area (accounting for drag offset)
+    _isOverPalette(wx, wy) {
+        if (!this.paletteContainer) return false;
+        const ox = this.paletteContainer.x;
+        const oy = this.paletteContainer.y;
+        return wx >= this._palBounds.left + ox && wx <= this._palBounds.right + ox &&
+               wy >= this._palBounds.top + oy && wy <= this._palBounds.bottom + oy;
+    }
+
     enterEditMode() {
         this.editMode = true;
-        this.currentAngle = 0; // Reset rotation angle
-        const TS = TILE_SIZE * SCALE;
-        this.editCursor = this.add.rectangle(TS / 2, TS / 2, TS, TS, 0xffff00, 0.25)
-            .setStrokeStyle(1, 0xffff00, 0.8)
+        this.currentAngle = 0;
+        this.palettePack = 0;
+        this._palDragging = false;
+        this._palSelecting = false;
+        this._selectedFrames = [];
+        this._selectionWidth = 1;
+        this._selectionHeight = 1;
+
+        // Cursor matches selection size (starts at 1×1 tile = 16×16)
+        const S = TILE_SIZE;
+        this.editCursor = this.add.rectangle(S / 2, S / 2, S, S, 0xffff00, 0.25)
+            .setStrokeStyle(2, 0xffff00, 0.8)
             .setDepth(300)
             .setVisible(false);
 
         this.game.canvas.addEventListener('contextmenu', this._ctxHandler = e => e.preventDefault());
 
         this.input.on('pointermove', this._onEditMove = (ptr) => {
+            // Handle palette dragging
+            if (this._palDragging) {
+                this.paletteContainer.setPosition(
+                    ptr.worldX - this._palDragOffX,
+                    ptr.worldY - this._palDragOffY
+                );
+                return;
+            }
+            // Handle palette drag-selection
+            if (this._palSelecting) {
+                const ox = this.paletteContainer ? this.paletteContainer.x : 0;
+                const oy = this.paletteContainer ? this.paletteContainer.y : 0;
+                const localX = ptr.worldX - this._palContentX - ox;
+                const localY = ptr.worldY - this._palContentY - oy;
+                const col = Math.max(0, Math.min(this._srcCols - 1, Math.floor(localX / this._palTS)));
+                const row = Math.max(0, Math.min(this._srcRows - 1, Math.floor(localY / this._palTS)));
+                this._palSelEnd = { col, row };
+                this._updatePalHighlight();
+                return;
+            }
             if (!this.editCursor) return;
-            const tx = Math.floor(ptr.worldX / TS);
-            const ty = Math.floor(ptr.worldY / TS);
-            this.editCursor.setPosition(tx * TS + TS / 2, ty * TS + TS / 2);
+            if (this._isOverPalette(ptr.worldX, ptr.worldY)) {
+                this.editCursor.setVisible(false);
+                return;
+            }
+            const tx = Math.floor(ptr.worldX / S);
+            const ty = Math.floor(ptr.worldY / S);
+            const sw = (this._selectionWidth || 1) * S;
+            const sh = (this._selectionHeight || 1) * S;
+            this.editCursor.setPosition(tx * S + sw / 2, ty * S + sh / 2);
             this.editCursor.setVisible(true);
         });
 
-        // Add keyboard listener for R key to rotate
+        this.input.on('pointerup', this._onEditUp = () => {
+            if (this._palSelecting) {
+                this._palSelecting = false;
+                this._finalizePalSelection();
+            }
+            this._palDragging = false;
+        });
+
         this._rotateKey = this.input.keyboard.on('keydown-R', () => {
             this.currentAngle = (this.currentAngle + 90) % 360;
-            this.updateRotationDisplay();
         });
+
+        // Build Phaser in-canvas palette (RenderTexture, no scrolling needed)
+        this.buildPalette();
 
         const btn = document.getElementById('edit-mode-btn');
         if (btn) btn.classList.add('active');
-        this.updateRotationDisplay();
+
+        // Wire up HTML category buttons to switch pack
+        this._catClickHandler = (e) => {
+            document.querySelectorAll('.fcat-btn').forEach(x => x.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            this.palettePack = parseInt(e.currentTarget.dataset.pack);
+            this.rebuildPaletteTiles();
+        };
+        document.querySelectorAll('.fcat-btn').forEach(b => {
+            b.addEventListener('click', this._catClickHandler);
+        });
     }
 
-    updateRotationDisplay() {
-        const info = document.getElementById('selected-tile-info');
-        if (!info) return;
-        const rotText = this.currentAngle !== 0 ? ` (旋转 ${this.currentAngle}°)` : '';
-        const frameText = this.selectedFrame >= 0 ? `已选 frame ${this.selectedFrame}` : '未选择';
-        info.textContent = frameText + rotText;
+    // Create palette using RenderTexture — shows original spritesheet layout at 0.5 scale
+    buildPalette() {
+        const CW = MAP_WIDTH * TILE_SIZE * SCALE;   // 960
+        const CH = MAP_HEIGHT * TILE_SIZE * SCALE;   // 640
+        const S = TILE_SIZE;                         // 16
+
+        // Display full 48-col spritesheet in original layout at half scale
+        const SRC_COLS = 48;
+        const SRC_ROWS = 48;                         // per pack
+        const PAL_SCALE = 0.5;
+        const TS = S * PAL_SCALE;                    // 8px displayed per tile
+        const PAD = 4;
+        const HANDLE_H = 14;                         // drag handle height
+
+        const contentW = SRC_COLS * TS;              // 384
+        const contentH = SRC_ROWS * TS;              // 384
+        const palW = contentW + PAD * 2;             // 392
+        const palX = CW - palW;                      // 568
+        const contentY = Math.floor((CH - contentH) / 2) + HANDLE_H; // below handle
+
+        this._palScale = PAL_SCALE;
+        this._palTS = TS;
+        this._srcCols = SRC_COLS;
+        this._srcRows = SRC_ROWS;
+        this._palContentX = palX + PAD;
+        this._palContentY = contentY;
+
+        // Palette bounds (relative to container origin, for hit testing)
+        this._palBounds = {
+            left: palX,
+            right: palX + palW,
+            top: contentY - HANDLE_H,
+            bottom: contentY + contentH
+        };
+
+        this.paletteContainer = this.add.container(0, 0).setDepth(250).setScrollFactor(0);
+
+        // Semi-transparent background (covers handle + content area)
+        const totalH = HANDLE_H + contentH + PAD;
+        const bgCenterY = contentY - HANDLE_H + totalH / 2;
+        const bg = this.add.rectangle(palX + palW / 2, bgCenterY, palW, totalH, 0x000000, 0.75);
+        this.paletteContainer.add(bg);
+
+        // Drag handle bar at top
+        const handleY = contentY - HANDLE_H;
+        const handle = this.add.rectangle(palX + palW / 2, handleY + HANDLE_H / 2, palW, HANDLE_H, 0x555555, 0.9)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(255);
+        this.paletteContainer.add(handle);
+        const handleLabel = this.add.text(palX + palW / 2, handleY + HANDLE_H / 2, '≡ 拖动移动', {
+            font: '9px sans-serif', color: '#bbb'
+        }).setOrigin(0.5).setDepth(256);
+        this.paletteContainer.add(handleLabel);
+
+        // Drag setup
+        handle.on('pointerdown', (ptr) => {
+            this._palDragging = true;
+            this._palDragOffX = ptr.worldX - this.paletteContainer.x;
+            this._palDragOffY = ptr.worldY - this.paletteContainer.y;
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+        });
+
+        // RenderTexture: draw tiles at native 16px, display at 0.5 scale
+        this._palRT = this.add.renderTexture(
+            this._palContentX, contentY, SRC_COLS * S, SRC_ROWS * S
+        ).setOrigin(0, 0).setScale(PAL_SCALE).setDepth(251);
+        this.paletteContainer.add(this._palRT);
+
+        // Interactive zone over displayed area for click detection
+        this._palZone = this.add.zone(
+            this._palContentX + contentW / 2,
+            contentY + contentH / 2,
+            contentW, contentH
+        ).setInteractive({ useHandCursor: true }).setDepth(252);
+        this.paletteContainer.add(this._palZone);
+
+        this._palZone.on('pointerdown', (ptr) => {
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            // Start drag-selection
+            const ox = this.paletteContainer.x;
+            const oy = this.paletteContainer.y;
+            const localX = ptr.worldX - this._palContentX - ox;
+            const localY = ptr.worldY - this._palContentY - oy;
+            const col = Math.floor(localX / TS);
+            const row = Math.floor(localY / TS);
+            if (col >= 0 && col < SRC_COLS && row >= 0 && row < SRC_ROWS) {
+                this._palSelecting = true;
+                this._palSelStart = { col, row };
+                this._palSelEnd = { col, row };
+                this._updatePalHighlight();
+            }
+        });
+
+        this.paletteHighlight = null;
+        this._paletteTileSprites = [];
+        this.rebuildPaletteTiles();
+    }
+
+    // Redraw RenderTexture for current pack
+    rebuildPaletteTiles() {
+        if (!this._palRT) return;
+        this._palRT.clear();
+        const S = TILE_SIZE;
+        const SRC_COLS = this._srcCols;
+        const SRC_ROWS = this._srcRows;
+        for (let row = 0; row < SRC_ROWS; row++) {
+            for (let col = 0; col < SRC_COLS; col++) {
+                const frame = (this.palettePack * SRC_ROWS + row) * SRC_COLS + col;
+                this._palRT.drawFrame('fantasy', frame, col * S, row * S);
+            }
+        }
+        if (this.paletteHighlight) {
+            this.paletteHighlight.destroy();
+            this.paletteHighlight = null;
+        }
     }
 
     exitEditMode() {
         this.editMode = false;
         this.currentAngle = 0;
         if (this.editCursor) { this.editCursor.destroy(); this.editCursor = null; }
+        if (this.paletteContainer) { this.paletteContainer.destroy(true); this.paletteContainer = null; }
+        if (this.paletteHighlight) { this.paletteHighlight.destroy(); this.paletteHighlight = null; }
+        this._palRT = null;
+        this._palZone = null;
+        this._paletteTileSprites = null;
         if (this._rotateKey) {
             this.input.keyboard.off('keydown-R', this._rotateKey);
             this._rotateKey = null;
@@ -1224,6 +1526,18 @@ class HomeScene extends Phaser.Scene {
             this.input.off('pointermove', this._onEditMove);
             this._onEditMove = null;
         }
+        if (this._onEditUp) {
+            this.input.off('pointerup', this._onEditUp);
+            this._onEditUp = null;
+        }
+        this._palDragging = false;
+        if (this._catClickHandler) {
+            document.querySelectorAll('.fcat-btn').forEach(b => {
+                b.removeEventListener('click', this._catClickHandler);
+            });
+            this._catClickHandler = null;
+        }
+
         const btn = document.getElementById('edit-mode-btn');
         if (btn) btn.classList.remove('active');
 
@@ -1291,9 +1605,10 @@ class HomeScene extends Phaser.Scene {
     }
 
     drawDoors(gfx, TS) {
+        // Stardew Valley style: open doorways, no door panels
+        // Just clear the wall and add subtle door frame posts
         const CORRIDOR_COLOR = 0xd4c4a8;
-        const DOOR_FRAME     = 0xF5E6D0;
-        const DOOR_WOOD      = 0xA07858;
+        const FRAME_COLOR    = 0x7A6548;
 
         for (const door of this.doors) {
             const dx = door.x * TS;
@@ -1301,26 +1616,20 @@ class HomeScene extends Phaser.Scene {
             const dw = door.w * TS;
             const dh = door.h * TS;
 
-            // 1. 门洞（用走廊色填充，覆盖墙壁）
+            // Clear wall area with corridor floor color
             gfx.fillStyle(CORRIDOR_COLOR, 1);
             gfx.fillRect(dx, dy, dw, dh);
 
-            // 2. 门框（深色边框）
-            gfx.lineStyle(2, 0x6B4D3B, 1);
-            gfx.strokeRect(dx, dy, dw, dh);
-
-            // 3. 半开门板
+            // Small door frame posts on each side (2px wide, subtle)
+            gfx.fillStyle(FRAME_COLOR, 0.6);
             if (door.type === 'horizontal') {
-                gfx.fillStyle(DOOR_WOOD, 0.8);
-                gfx.fillRect(dx + 2, dy + 2, dw / 2 - 4, dh - 4);
-                // 门把手
-                gfx.fillStyle(0xFFD700, 1);
-                gfx.fillCircle(dx + dw / 2 - 6, dy + dh / 2, 2);
+                // Vertical posts on left and right edges
+                gfx.fillRect(dx, dy, 2, dh);
+                gfx.fillRect(dx + dw - 2, dy, 2, dh);
             } else {
-                gfx.fillStyle(DOOR_WOOD, 0.8);
-                gfx.fillRect(dx + 2, dy + 2, dw - 4, dh / 2 - 4);
-                gfx.fillStyle(0xFFD700, 1);
-                gfx.fillCircle(dx + dw / 2, dy + dh / 2 - 6, 2);
+                // Horizontal posts on top and bottom edges
+                gfx.fillRect(dx, dy, dw, 2);
+                gfx.fillRect(dx, dy + dh - 2, dw, 2);
             }
         }
     }

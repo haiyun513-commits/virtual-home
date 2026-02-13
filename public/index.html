@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>阿文和大宝的家</title>
-    <link rel="stylesheet" href="css/ui.css">
+    <title>宇宙漫游频道 ✧(｡•̀ᴗ-)✧</title>
+    <link rel="stylesheet" href="css/ui.css?v=20260213g">
 </head>
 <body>
     <div id="game-container"></div>
@@ -89,18 +89,21 @@
             </div>
         </div>
 
-        <!-- Furniture editor panel -->
+        <!-- Furniture editor panel (compact — palette is inside Phaser canvas) -->
         <div id="furniture-panel" class="panel hidden">
-            <div class="panel-header">
+            <div class="panel-header" id="furniture-panel-header">
                 <span>✏️ 家具编辑</span>
                 <button class="panel-close">&times;</button>
             </div>
-            <div class="panel-body" style="padding: 0;">
-                <div style="padding: 5px 8px; font-size: 10px; color: #888;">左键放置 · 右键删除 · 点选图块↓</div>
-                <div id="furniture-palette-wrap">
-                    <canvas id="furniture-palette"></canvas>
+            <div class="panel-body" style="padding: 6px 8px;">
+                <div style="font-size: 10px; color: #888; margin-bottom: 6px;">左键放置 · 右键删除 · R旋转 · 滚轮翻页</div>
+                <div id="furniture-category-bar">
+                    <button class="fcat-btn active" data-pack="0">室内1</button>
+                    <button class="fcat-btn" data-pack="1">室内2</button>
+                    <button class="fcat-btn" data-pack="2">室内3</button>
+                    <button class="fcat-btn" data-pack="3">室内4</button>
                 </div>
-                <div style="padding: 6px 8px; display: flex; gap: 6px; align-items: center;">
+                <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
                     <span id="selected-tile-info" style="font-size: 10px; color: #888; flex: 1;">未选择</span>
                     <button id="clear-furniture-btn">清空</button>
                     <button id="save-furniture-btn">保存退出</button>
@@ -211,9 +214,9 @@
     <!-- EasyStar pathfinding -->
     <script src="https://cdn.jsdelivr.net/npm/easystarjs@0.4.4/bin/easystar-0.4.4.min.js"></script>
     <!-- Game scripts -->
-    <script src="scenes/Boot.js"></script>
-    <script src="scenes/Home.js"></script>
-    <script src="scenes/UI.js"></script>
-    <script src="game.js"></script>
+    <script src="scenes/Boot.js?v=20260213g"></script>
+    <script src="scenes/Home.js?v=20260213z"></script>
+    <script src="scenes/UI.js?v=20260213g"></script>
+    <script src="game.js?v=20260213w"></script>
 </body>
 </html>
