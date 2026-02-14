@@ -94,8 +94,36 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
     border: 1px solid #e8c8be;
     box-shadow: 0 1px 4px rgba(180, 100, 80, 0.10);
+}
+
+.activity-progress-wrap {
+    width: 100%;
+    height: 4px;
+    background: rgba(0,0,0,0.08);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+    margin-top: 1px;
+}
+
+.activity-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #d4908a, #e8a898);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 1s linear;
+}
+
+.activity-progress-text {
+    position: absolute;
+    right: 2px;
+    top: -10px;
+    font-size: 8px;
+    color: #a07060;
+    white-space: nowrap;
 }
 
 .char-name {
@@ -636,11 +664,11 @@ body {
     transform: translate(-50%, -50%);
     width: 280px;
     z-index: 25;
-    max-height: 400px;
+    max-height: 460px;
 }
 
 .popup-center .panel-body {
-    max-height: 340px;
+    max-height: 400px;
     overflow-y: auto;
 }
 
@@ -1059,6 +1087,37 @@ body {
     font-family: 'Courier New', monospace;
 }
 
+.vitals-input {
+    width: 55px;
+    text-align: right;
+    font-size: 10px;
+    color: #554444;
+    font-family: 'Courier New', monospace;
+    border: 1px solid #ddc;
+    border-radius: 3px;
+    padding: 1px 4px;
+    background: #fff;
+    outline: none;
+}
+.vitals-input:focus {
+    border-color: #e8a87c;
+    box-shadow: 0 0 3px rgba(232,168,124,0.4);
+}
+.vitals-save-btn {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px;
+    background: #e8a87c;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.vitals-save-btn:hover { background: #d4956a; }
+.vitals-save-btn:disabled { background: #ccc; cursor: default; }
+
 .vitals-time {
     font-size: 10px;
     color: #aa9988;
@@ -1075,6 +1134,402 @@ body {
     margin-top: 4px;
     background: #fef2f2;
     border-radius: 4px;
+}
+
+/* ============================================
+   Schedule Calendar Panel (日程总览)
+   ============================================ */
+.cal-month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px;
+    font-size: 12px;
+    color: #5a3030;
+    font-weight: bold;
+}
+.cal-month-nav button {
+    background: none;
+    border: 1px solid #e8c4b8;
+    color: #a07060;
+    border-radius: 4px;
+    padding: 1px 8px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.cal-month-nav button:hover { background: #fef0e0; }
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    padding: 4px 6px;
+}
+.cal-grid .cal-dow {
+    font-size: 9px;
+    color: #a08060;
+    text-align: center;
+    padding: 2px 0;
+    font-weight: bold;
+}
+.cal-grid .cal-day {
+    text-align: center;
+    font-size: 10px;
+    padding: 3px 0 1px;
+    color: #6a4040;
+    border-radius: 4px;
+    cursor: default;
+    position: relative;
+    min-height: 22px;
+}
+.cal-grid .cal-day.cal-empty { color: transparent; }
+.cal-grid .cal-day.cal-today-day {
+    background: #fce4c0;
+    font-weight: bold;
+}
+.cal-grid .cal-day.cal-has-event {
+    cursor: pointer;
+}
+.cal-grid .cal-day.cal-has-event::after {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #d08040;
+    margin: 1px auto 0;
+}
+.cal-grid .cal-day.cal-has-event.cal-done::after {
+    background: #80b060;
+}
+.cal-events-list {
+    padding: 4px 6px;
+    border-top: 1px solid #e8c4b8;
+    max-height: 120px;
+    overflow-y: auto;
+}
+.cal-event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    font-size: 10px;
+}
+.cal-event-item .cal-ev-icon { flex-shrink: 0; }
+.cal-event-item .cal-ev-name { color: #4a3030; flex: 1; }
+.cal-event-item .cal-ev-name.cal-ev-done { text-decoration: line-through; color: #a09080; }
+.cal-event-item .cal-ev-date { color: #a08060; font-size: 9px; }
+.cal-event-item .cal-ev-tags { color: #a08060; font-size: 9px; }
+
+/* ============================================
+   Diary Panel (日志频道)
+   ============================================ */
+.diary-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.diary-entry:hover { background: #fef0e0; }
+.diary-date {
+    color: #a08060;
+    font-size: 9px;
+    min-width: 42px;
+    flex-shrink: 0;
+}
+.diary-title {
+    color: #4a3030;
+    font-size: 11px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.diary-arrow {
+    color: #c0a090;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+.diary-detail {
+    padding: 8px;
+}
+.diary-detail-back {
+    font-size: 10px;
+    color: #a07060;
+    cursor: pointer;
+    margin-bottom: 6px;
+    display: inline-block;
+}
+.diary-detail-back:hover { color: #5a3030; }
+.diary-detail-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #5a3030;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+.diary-detail-body {
+    font-size: 11px;
+    color: #4a3030;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.diary-detail-body p {
+    margin-bottom: 6px;
+}
+
+/* === Pet Widget (HUD 宠物卡片) === */
+.pet-widget {
+    background: rgba(255, 248, 245, 0.93);
+    padding: 6px 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #e8c8a0;
+    box-shadow: 0 1px 4px rgba(180, 100, 80, 0.10);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.pet-widget:hover {
+    background: rgba(255, 240, 230, 0.97);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(180, 100, 80, 0.18);
+}
+.pet-widget-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #e8c8a0;
+    image-rendering: pixelated;
+}
+.pet-widget-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+.pet-widget-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.pet-widget-name {
+    font-size: 11px;
+    font-weight: bold;
+    color: #cc8844;
+}
+.pet-mood-emoji { font-size: 12px; }
+.pet-widget-behavior {
+    font-size: 9px;
+    color: #7a5858;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pet-widget-bars {
+    display: flex;
+    gap: 2px;
+    margin-top: 1px;
+}
+.pet-mini-bar {
+    flex: 1;
+    height: 3px;
+    background: #f0e0d0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.pet-mini-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+/* === Pet Panel (模拟人生4风格) === */
+.pet-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pet-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: linear-gradient(135deg, #fff8f0, #fef0e8);
+    border: 1px solid #f0d0c0;
+    border-radius: 8px;
+}
+.pet-profile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid #e8c8a0;
+    image-rendering: pixelated;
+}
+.pet-profile-info { flex: 1; }
+.pet-profile-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #3a2020;
+}
+.pet-profile-breed {
+    font-size: 10px;
+    color: #8a6060;
+    margin-top: 1px;
+}
+.pet-profile-age {
+    font-size: 10px;
+    color: #aa8888;
+    margin-top: 1px;
+}
+
+.pet-mood-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background 0.5s ease;
+    background: #dcfce7;
+}
+.pet-mood-emoji-big { font-size: 22px; }
+.pet-mood-text {
+    font-size: 13px;
+    font-weight: bold;
+    color: #3a2020;
+}
+
+.pet-section-title {
+    font-size: 10px;
+    font-weight: bold;
+    color: #aa8877;
+    margin-bottom: 4px;
+}
+
+.pet-need-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 0;
+}
+.pet-need-icon { font-size: 12px; width: 16px; text-align: center; }
+.pet-need-label { font-size: 10px; color: #776666; min-width: 28px; }
+.pet-need-bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: #f0e4dc;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.pet-need-bar {
+    height: 100%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 100%);
+    background-size: 100% 100%;
+    transition: width 0.5s ease;
+}
+.pet-need-bar.happiness {
+    background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #ec4899 100%);
+}
+.pet-need-bar.cleanliness {
+    background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #3b82f6 100%);
+}
+.pet-need-value {
+    font-size: 10px;
+    color: #998888;
+    min-width: 22px;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+.pet-status-text {
+    font-size: 11px;
+    color: #7a5858;
+    padding: 2px 0;
+}
+
+.pet-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+.pet-action-btn {
+    background: linear-gradient(135deg, #fff3e8, #ffe8d8);
+    border: 1px solid #e8c4b8;
+    color: #5a3a3a;
+    padding: 8px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+    transition: all 0.15s;
+    text-align: center;
+}
+.pet-action-btn:hover {
+    background: linear-gradient(135deg, #ffe8d8, #ffd8c0);
+    border-color: #cc8878;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(180, 100, 80, 0.2);
+}
+.pet-action-btn:active {
+    transform: translateY(0);
+}
+
+.pet-feedback {
+    text-align: center;
+    padding: 6px;
+    background: rgba(34, 197, 94, 0.15);
+    border-radius: 6px;
+    color: #166534;
+    font-size: 11px;
+    font-weight: bold;
+}
+.pet-feedback.hidden { display: none; }
+
+@keyframes pet-feedback-pop {
+    0% { opacity: 0; transform: scale(0.9); }
+    20% { opacity: 1; transform: scale(1.02); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: scale(0.95); }
+}
+.pet-feedback.show {
+    animation: pet-feedback-pop 2s ease forwards;
+}
+
+/* === Entity Picker (重叠点击选择) === */
+#entity-picker {
+    position: fixed;
+    background: rgba(255, 248, 245, 0.97);
+    border: 1px solid #d4a88a;
+    border-radius: 8px;
+    padding: 4px;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(180, 100, 80, 0.2);
+    backdrop-filter: blur(4px);
+}
+
+.picker-option {
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #4a3030;
+    border-radius: 5px;
+    white-space: nowrap;
+    transition: background 0.12s;
+}
+
+.picker-option:hover {
+    background: #fce8e0;
+}
+
+.picker-option:active {
+    background: #f0d0c0;
 }
 
 /* === Action Popup (模拟人生交互) === */
@@ -1146,6 +1601,91 @@ body {
 }
 .char-toggle-btn:hover:not(.active) {
     background: #f0e0d0;
+}
+
+/* === Takeout Panel (外卖面板) === */
+#takeout-popup {
+    width: 340px;
+}
+.takeout-body {
+    overflow-y: auto;
+    max-height: 420px;
+}
+.takeout-delivery-status {
+    background: linear-gradient(135deg, #fff8f0, #fef0e8);
+    border: 1px solid #f0d0c0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+}
+.delivery-active {
+    font-size: 12px;
+    font-weight: bold;
+    color: #c06830;
+    margin-bottom: 4px;
+}
+.delivery-info {
+    font-size: 11px;
+    color: #7a5848;
+    line-height: 1.5;
+}
+.takeout-tier {
+    font-size: 11px;
+    font-weight: bold;
+    color: #9a6848;
+    padding: 6px 0 3px;
+    border-bottom: 1px solid #f0e0d8;
+    margin-bottom: 4px;
+}
+.takeout-tier:first-child {
+    padding-top: 0;
+}
+.takeout-restaurant {
+    margin-bottom: 8px;
+}
+.takeout-r-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+.takeout-r-name {
+    font-size: 11px;
+    font-weight: bold;
+    color: #3a2020;
+}
+.takeout-r-price {
+    font-size: 10px;
+    color: #b08060;
+}
+.takeout-r-time {
+    font-size: 10px;
+    color: #aaa;
+    margin-left: auto;
+}
+.takeout-dishes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px 0;
+}
+.takeout-dish-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    border: 1px solid #e0d0c8;
+    background: #fffcfa;
+    color: #5a3828;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.takeout-dish-btn:hover {
+    background: linear-gradient(135deg, #f8e0d0, #f0c8b0);
+    border-color: #d09878;
+    transform: translateY(-1px);
+}
+.takeout-dish-btn:active {
+    transform: translateY(0);
 }
 
 /* === Needs Bar (模拟人生需求条) === */
@@ -1233,37 +1773,51 @@ body {
    Mobile Responsive (< 768px)
    ============================================ */
 @media (max-width: 768px) {
-    /* Top bar - smaller, wrap if needed */
+    /* Top bar - horizontal scroll, no wrap */
     #top-bar {
         font-size: 10px;
-        padding: 3px 8px;
-        gap: 6px;
-        flex-wrap: wrap;
-        max-width: 95%;
+        padding: 3px 6px;
+        gap: 4px;
+        flex-wrap: nowrap;
+        left: 4px;
+        right: 4px;
+        transform: none;
+        width: auto;
+        max-width: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
     }
+    #top-bar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
 
     #top-bar button {
-        font-size: 11px;
+        font-size: 12px;
         padding: 2px 4px;
+        flex-shrink: 0;
     }
 
     #refresh-btn {
         width: 20px;
         height: 20px;
         font-size: 12px;
+        flex-shrink: 0;
     }
 
     #clock {
         font-size: 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     #time-period {
         font-size: 9px;
+        flex-shrink: 0;
     }
 
-    /* Status bar - more compact */
+    /* Status bar - more compact, below top bar */
     #status-bar {
-        top: 50px;
+        top: 46px;
         left: 4px;
         gap: 3px;
     }
@@ -1354,6 +1908,22 @@ body {
         max-height: calc(70vh - 40px);
     }
 
+    /* Takeout - adapt to screen */
+    #takeout-popup {
+        width: calc(100% - 16px);
+        max-width: 320px;
+    }
+    .takeout-body {
+        max-height: calc(70vh - 40px);
+    }
+    .takeout-dish-btn {
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+    .takeout-r-name { font-size: 12px; }
+    .takeout-r-price { font-size: 11px; }
+    .takeout-r-time { font-size: 11px; }
+
     /* Character panel */
     #char-panel {
         width: calc(100% - 16px);
@@ -1380,18 +1950,35 @@ body {
    Extra Small Mobile (< 480px)
    ============================================ */
 @media (max-width: 480px) {
-    /* Even more compact top bar */
+    /* Top bar - even more compact, hide clock */
     #top-bar {
         font-size: 9px;
-        padding: 2px 6px;
-        gap: 4px;
+        padding: 2px 4px;
+        gap: 3px;
     }
 
-    #clock {
-        display: none; /* Hide clock on very small screens */
+    #clock, #time-period {
+        display: none;
     }
 
-    /* Status bar - minimal */
+    #top-bar button {
+        font-size: 14px;
+        padding: 2px;
+        min-width: 28px;
+        min-height: 28px;
+    }
+
+    #refresh-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+    }
+
+    /* Status bar - minimal, below top bar */
+    #status-bar {
+        top: 42px;
+    }
+
     .char-status {
         font-size: 9px;
         padding: 2px 4px;
@@ -1425,6 +2012,21 @@ body {
         top: 10%;
         transform: none !important;
     }
+
+    /* Takeout - full width, compact */
+    #takeout-popup {
+        width: calc(100% - 8px);
+    }
+    .takeout-body {
+        max-height: 60vh;
+    }
+    .takeout-dishes {
+        gap: 5px;
+    }
+    .takeout-dish-btn {
+        font-size: 11px;
+        padding: 6px 10px;
+    }
 }
 
 /* ============================================
@@ -1439,6 +2041,13 @@ body {
 
     .panel-close, .panel-toggle {
         padding: 4px 8px;
+    }
+
+    /* Takeout dish buttons - bigger tap targets */
+    .takeout-dish-btn {
+        font-size: 12px;
+        padding: 8px 12px;
+        min-height: 36px;
     }
 
     /* Prevent text selection on UI elements */

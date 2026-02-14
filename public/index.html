@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>宇宙漫游频道 ✧(｡•̀ᴗ-)✧</title>
-    <link rel="stylesheet" href="css/ui.css?v=20260213g">
+    <link rel="stylesheet" href="css/ui.css?v=20260213i">
 </head>
 <body>
     <div id="game-container"></div>
@@ -19,6 +19,8 @@
             <button id="money-toggle-btn" title="账单">💰</button>
             <button id="vitals-toggle-btn" title="体征">💓</button>
             <button id="food-log-btn" title="饮食记录">🍽️</button>
+            <button id="calendar-toggle-btn" title="日志频道">📝</button>
+            <button id="notion-toggle-btn" title="日程总览">📅</button>
             <button id="edit-mode-btn" title="家具编辑">✏️</button>
             <button id="layout-btn" title="切换布局">🏠</button>
             <button id="refresh-btn" title="刷新状态">↻</button>
@@ -30,11 +32,26 @@
                 <span class="char-name">阿文</span>
                 <span class="char-activity" id="awen-activity">...</span>
                 <span class="online-dot" id="awen-online"></span>
+                <div class="activity-progress-wrap" id="awen-progress-wrap">
+                    <div class="activity-progress-bar" id="awen-progress-bar"></div>
+                    <span class="activity-progress-text" id="awen-progress-text"></span>
+                </div>
             </div>
             <div class="char-status" id="dabao-status-bar">
                 <span class="char-name">大宝</span>
                 <span class="char-activity" id="dabao-activity">...</span>
                 <span class="online-dot" id="dabao-online"></span>
+            </div>
+            <div class="pet-widget" id="pet-widget" onclick="openPetPanel()">
+                <img src="assets/characters/tudou.png" alt="土豆" class="pet-widget-avatar">
+                <div class="pet-widget-info">
+                    <div class="pet-widget-top">
+                        <span class="pet-widget-name">🐱 土豆</span>
+                        <span class="pet-mood-emoji" id="pet-mood-emoji">😊</span>
+                    </div>
+                    <div class="pet-widget-behavior" id="pet-widget-behavior">...</div>
+                    <div class="pet-widget-bars" id="pet-widget-bars"></div>
+                </div>
             </div>
         </div>
 
@@ -102,6 +119,7 @@
                     <button class="fcat-btn" data-pack="1">室内2</button>
                     <button class="fcat-btn" data-pack="2">室内3</button>
                     <button class="fcat-btn" data-pack="3">室内4</button>
+                    <button class="fcat-btn" data-pack="park">户外</button>
                 </div>
                 <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
                     <span id="selected-tile-info" style="font-size: 10px; color: #888; flex: 1;">未选择</span>
@@ -144,6 +162,69 @@
             </div>
         </div>
 
+        <!-- Diary panel (日志频道) -->
+        <div id="calendar-panel" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>📝 日志频道</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="calendar-content">
+                    <div class="calendar-loading" style="color:#a08060;font-size:11px;">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule panel (日程总览) -->
+        <div id="notion-panel" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>📅 日程总览</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div id="notion-content">
+                    <div class="notion-loading" style="color:#a08060;font-size:11px;">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cat panel (土豆 - 模拟人生4风格) -->
+        <div id="cat-panel" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>🐱 土豆的信息</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body pet-panel-body">
+                <div class="pet-profile">
+                    <img src="assets/characters/tudou.png" alt="土豆" class="pet-profile-avatar">
+                    <div class="pet-profile-info">
+                        <div class="pet-profile-name">土豆</div>
+                        <div class="pet-profile-breed">缅因猫</div>
+                        <div class="pet-profile-age" id="pet-profile-age">已收养 0 天</div>
+                    </div>
+                </div>
+                <div class="pet-mood-card" id="pet-mood-card">
+                    <span class="pet-mood-emoji-big" id="pet-mood-emoji-big">😊</span>
+                    <span class="pet-mood-text" id="pet-mood-text">开心</span>
+                </div>
+                <div class="pet-needs-section">
+                    <div class="pet-section-title">需求状态</div>
+                    <div id="cat-vitals"></div>
+                </div>
+                <div class="pet-status-section">
+                    <div class="pet-section-title">当前状态</div>
+                    <div id="cat-behavior" class="pet-status-text"></div>
+                </div>
+                <div class="pet-actions">
+                    <button class="pet-action-btn" onclick="petAction('pet')">🤲 撸猫</button>
+                    <button class="pet-action-btn" onclick="petAction('feed')">🍖 喂猫</button>
+                    <button class="pet-action-btn" onclick="petAction('play')">🧶 逗猫</button>
+                    <button class="pet-action-btn" onclick="petAction('groom')">🛁 梳毛</button>
+                </div>
+                <div id="pet-feedback" class="pet-feedback hidden"></div>
+            </div>
+        </div>
+
         <!-- Money panel -->
         <div id="money-panel" class="panel popup-center hidden">
             <div class="panel-header">
@@ -161,7 +242,10 @@
         <div id="vitals-panel" class="panel popup-center hidden">
             <div class="panel-header">
                 <span>💓 阿文体征</span>
-                <button class="panel-close">&times;</button>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <button id="vitals-edit-btn" class="panel-btn" title="编辑体征">✏️</button>
+                    <button class="panel-close">&times;</button>
+                </div>
             </div>
             <div class="panel-body">
                 <div id="vitals-content">
@@ -205,6 +289,18 @@
                 <div id="action-popup-buttons" class="action-btns"></div>
             </div>
         </div>
+
+        <!-- Takeout popup (外卖面板) -->
+        <div id="takeout-popup" class="panel popup-center hidden">
+            <div class="panel-header">
+                <span>📱 点外卖</span>
+                <button class="panel-close">&times;</button>
+            </div>
+            <div class="panel-body takeout-body">
+                <div id="takeout-status"></div>
+                <div id="takeout-menu"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Phaser 3 -->
@@ -214,9 +310,9 @@
     <!-- EasyStar pathfinding -->
     <script src="https://cdn.jsdelivr.net/npm/easystarjs@0.4.4/bin/easystar-0.4.4.min.js"></script>
     <!-- Game scripts -->
-    <script src="scenes/Boot.js?v=20260213g"></script>
-    <script src="scenes/Home.js?v=20260213z"></script>
+    <script src="scenes/Boot.js?v=20260213ac2"></script>
+    <script src="scenes/Home.js?v=20260213ag"></script>
     <script src="scenes/UI.js?v=20260213g"></script>
-    <script src="game.js?v=20260213w"></script>
+    <script src="game.js?v=20260213z"></script>
 </body>
 </html>

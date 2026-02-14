@@ -116,6 +116,12 @@ function updateCharactersFromState(state) {
             homeScene.moveCharacterToRoom(user, data.room, data.activity);
         }
     }
+
+    // Update cat position
+    if (state.pet && homeScene.moveCatToRoom) {
+        const PBT = { idle:'趴着发呆', sleeping:'zzZ', eating:'吃猫粮', playing:'玩毛线球', following_awen:'跟着阿文', wandering:'溜达', grooming:'舔毛' };
+        homeScene.moveCatToRoom(state.pet.room, PBT[state.pet.behavior]);
+    }
 }
 
 function updateHUD(state) {
@@ -151,12 +157,102 @@ function updateHUD(state) {
     if (state.notes !== undefined) {
         updateNotesPanel(state.notes);
     }
+
+    // Update pet widget + cat panel
+    if (state.pet) {
+        updatePetWidget(state.pet);
+        const homeScene = game.scene.getScene('HomeScene');
+        if (homeScene && homeScene.refreshCatPanel) homeScene.refreshCatPanel();
+    }
+
+    // Update activity progress bar
+    updateActivityProgress();
 }
 
 function updateEmotionDisplay(data) {
     // Will be called from emotion:sync event
     // Handled in UI.js
 }
+
+// ============================================
+// Activity progress bar (阿文活动进度条)
+// ============================================
+const ACTIVITY_MIN_STAY_CLIENT = [
+    { keywords: ['上厕所'], minutes: 3 },
+    { keywords: ['喝水', '泡咖啡', '热牛奶'], minutes: 5 },
+    { keywords: ['洗澡', '淋浴', '热水澡'], minutes: 15 },
+    { keywords: ['吃', '做饭', '煮', '炒', '煎'], minutes: 10 },
+    { keywords: ['做好', '外卖到'], minutes: 5 },
+    { keywords: ['睡'], minutes: 60 },
+];
+const DEFAULT_MIN_STAY = 30;
+
+function getMinStayForActivity(activity) {
+    if (!activity) return DEFAULT_MIN_STAY;
+    for (const rule of ACTIVITY_MIN_STAY_CLIENT) {
+        if (rule.keywords.some(k => activity.includes(k))) return rule.minutes;
+    }
+    return DEFAULT_MIN_STAY;
+}
+
+function updateActivityProgress() {
+    const state = gameState.serverState;
+    if (!state || !state.users || !state.users.awen) return;
+
+    const awen = state.users.awen;
+    const bar = document.getElementById('awen-progress-bar');
+    const text = document.getElementById('awen-progress-text');
+    const wrap = document.getElementById('awen-progress-wrap');
+    if (!bar || !text || !wrap) return;
+
+    let elapsed, total, label;
+
+    // Priority: cooking/delivery have exact finish times
+    if (state.cooking && state.cooking.active && state.cooking.startedAt && state.cooking.finishAt) {
+        const start = new Date(state.cooking.startedAt).getTime();
+        const finish = new Date(state.cooking.finishAt).getTime();
+        total = (finish - start) / 60000;
+        elapsed = (Date.now() - start) / 60000;
+        label = '🍳 做饭';
+    } else if (state.delivery && state.delivery.active && state.delivery.orderedAt && state.delivery.arriveAt) {
+        const start = new Date(state.delivery.orderedAt).getTime();
+        const finish = new Date(state.delivery.arriveAt).getTime();
+        total = (finish - start) / 60000;
+        elapsed = (Date.now() - start) / 60000;
+        label = '🛵 外卖';
+    } else {
+        // Normal activity progress
+        const changedAt = awen.activityChangedAt;
+        if (!changedAt) { wrap.style.display = 'none'; return; }
+        elapsed = (Date.now() - changedAt) / 60000;
+        total = getMinStayForActivity(awen.activity);
+        label = null;
+    }
+
+    wrap.style.display = '';
+    const pct = Math.min(100, (elapsed / total) * 100);
+    bar.style.width = pct + '%';
+
+    // Color: green when almost done, orange while in progress
+    if (pct >= 100) {
+        bar.style.background = 'linear-gradient(90deg, #7ec850, #6db840)';
+    } else if (pct >= 70) {
+        bar.style.background = 'linear-gradient(90deg, #d4c080, #c8b060)';
+    } else {
+        bar.style.background = 'linear-gradient(90deg, #d4908a, #e8a898)';
+    }
+
+    const remaining = Math.max(0, total - elapsed);
+    const prefix = label ? label + ' ' : '';
+    if (remaining > 0) {
+        text.textContent = prefix + Math.ceil(remaining) + '分钟';
+    } else {
+        text.textContent = prefix + '可换';
+    }
+}
+
+// Update progress every 10 seconds
+setInterval(updateActivityProgress, 10000);
 
 function updateChatMessages(messages) {
     const container = document.getElementById('chat-messages');
@@ -259,7 +355,7 @@ function initChatInput() {
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
-            fetch('/state').then(r => r.json()).then(state => {
+            fetch('/state/light').then(r => r.json()).then(state => {
                 gameState.serverState = state;
                 updateCharactersFromState(state);
                 updateHUD(state);
@@ -702,6 +798,9 @@ function loadFoodLogData() {
 }
 
 // Vitals panel
+let vitalsEditMode = false;
+let vitalsLastData = null;
+
 function initVitalsPanel() {
     const toggleBtn = document.getElementById('vitals-toggle-btn');
     if (!toggleBtn) return;
@@ -710,6 +809,7 @@ function initVitalsPanel() {
         const panel = document.getElementById('vitals-panel');
         if (panel.classList.contains('hidden')) {
             panel.classList.remove('hidden');
+            vitalsEditMode = false;
             loadVitalsData();
         } else {
             panel.classList.add('hidden');
@@ -718,12 +818,21 @@ function initVitalsPanel() {
 
     document.querySelector('#vitals-panel .panel-close')?.addEventListener('click', () => {
         document.getElementById('vitals-panel').classList.add('hidden');
+        vitalsEditMode = false;
+    });
+
+    document.getElementById('vitals-edit-btn')?.addEventListener('click', () => {
+        vitalsEditMode = !vitalsEditMode;
+        const btn = document.getElementById('vitals-edit-btn');
+        btn.textContent = vitalsEditMode ? '👁️' : '✏️';
+        btn.title = vitalsEditMode ? '查看模式' : '编辑体征';
+        loadVitalsData();
     });
 }
 
 function vitalsBarColor(key, value) {
     const thresholds = {
-        blood_sugar:  { wL: 3.8, wH: 6.5, dL: 3.2, dH: 7.0, min: 2.5, max: 7.5 },
+        blood_sugar:  { wL: 3.8, wH: 9.0, dL: 3.2, dH: 10.5, min: 2.5, max: 12.0 },
         body_temp:    { wL: 36.0, wH: 37.5, dL: 35.5, dH: 38.0, min: 35.0, max: 39.0 },
         hydration:    { wL: 35, dL: 20, min: 0, max: 100 },
         heart_rate:   { wL: 55, wH: 110, dL: 45, dH: 130, min: 40, max: 160 },
@@ -794,17 +903,21 @@ function loadVitalsData() {
                 { key: 'endorphin', icon: '🏃', name: '内啡肽', unit: '' }
             ];
 
+            vitalsLastData = data;
+
             function renderBar(item) {
                 const val = parseFloat(data[item.key]);
                 const { color, pct } = vitalsBarColor(item.key, val);
-                // stress bar is inverted (high = bad)
-                const barPct = item.key === 'stress' ? (100 - pct) : pct;
+                const barPct = pct;
+                const valueHtml = vitalsEditMode
+                    ? `<input class="vitals-input" data-key="${item.key}" type="number" step="any" value="${val}" />`
+                    : `<span class="vitals-value">${val}${item.unit}</span>`;
                 return `<div class="vitals-metric">
                     <span class="vitals-label">${item.icon} ${item.name}</span>
                     <div class="vitals-bar-wrap">
                         <div class="vitals-bar" style="width:${barPct}%;background:${color}"></div>
                     </div>
-                    <span class="vitals-value">${val}${item.unit}</span>
+                    ${valueHtml}
                 </div>`;
             }
 
@@ -816,35 +929,61 @@ function loadVitalsData() {
             html += '<div class="vitals-section-title">神经递质</div>';
             neuro.forEach(item => { html += renderBar(item); });
 
-            // Phase 2: 模拟人生需求条
-            html += `<div class="needs-section">
-                <div class="needs-section-title">🎮 生活需求</div>
-                <div class="needs-grid">`;
-
-            // 需求映射
-            const needs = [
-                { icon: '🍔', name: '饥饿', value: needsMap('hunger', data), key: 'hunger' },
-                { icon: '💧', name: '口渴', value: data.hydration || 50, key: 'thirst' },
-                { icon: '🧼', name: '卫生', value: data.hygiene !== undefined ? data.hygiene : 80, key: 'hygiene' },
-                { icon: '🚽', name: '如厕', value: data.bladder !== undefined ? data.bladder : 70, key: 'bladder' },
-                { icon: '⚡', name: '娱乐', value: data.dopamine || 50, key: 'fun' },
-                { icon: '💪', name: '精力', value: data.energy !== undefined ? data.energy : 85, key: 'energy' }
-            ];
-
-            for (const need of needs) {
-                const pct = Math.max(0, Math.min(100, need.value));
-                const barColor = pct < 20 ? '#ef4444' : pct < 40 ? '#f59e0b' : '#4ade80';
-                const flashClass = pct < 20 ? ' need-danger' : '';
-                html += `<div class="need-item">
-                    <span class="need-icon">${need.icon}</span>
-                    <div class="need-bar-wrap">
-                        <div class="need-bar${flashClass}" style="width:${pct}%;background:${barColor}"></div>
-                    </div>
-                    <span class="need-label">${Math.round(pct)}</span>
-                </div>`;
+            // 编辑模式：额外显示 hygiene/bladder/energy 输入
+            if (vitalsEditMode) {
+                const extra = [
+                    { key: 'hygiene', icon: '🧼', name: '卫生' },
+                    { key: 'bladder', icon: '🚽', name: '膀胱' },
+                    { key: 'energy', icon: '💪', name: '精力' }
+                ];
+                html += '<div class="vitals-section-title">生活指标</div>';
+                extra.forEach(item => {
+                    const val = parseFloat(data[item.key] ?? 50);
+                    const { color, pct } = vitalsBarColor(item.key, val);
+                    html += `<div class="vitals-metric">
+                        <span class="vitals-label">${item.icon} ${item.name}</span>
+                        <div class="vitals-bar-wrap">
+                            <div class="vitals-bar" style="width:${pct}%;background:${color}"></div>
+                        </div>
+                        <input class="vitals-input" data-key="${item.key}" type="number" step="1" value="${val}" />
+                    </div>`;
+                });
             }
 
-            html += `</div></div>`;
+            // Phase 2: 模拟人生需求条
+            if (!vitalsEditMode) {
+                html += `<div class="needs-section">
+                    <div class="needs-section-title">🎮 生活需求</div>
+                    <div class="needs-grid">`;
+
+                const needs = [
+                    { icon: '🍔', name: '饥饿', value: needsMap('hunger', data), key: 'hunger' },
+                    { icon: '💧', name: '口渴', value: data.hydration || 50, key: 'thirst' },
+                    { icon: '🧼', name: '卫生', value: data.hygiene !== undefined ? data.hygiene : 80, key: 'hygiene' },
+                    { icon: '🚽', name: '如厕', value: data.bladder !== undefined ? data.bladder : 70, key: 'bladder' },
+                    { icon: '⚡', name: '娱乐', value: data.dopamine || 50, key: 'fun' },
+                    { icon: '💪', name: '精力', value: data.energy !== undefined ? data.energy : 85, key: 'energy' }
+                ];
+
+                for (const need of needs) {
+                    const pct = Math.max(0, Math.min(100, need.value));
+                    const barColor = pct < 20 ? '#ef4444' : pct < 40 ? '#f59e0b' : '#4ade80';
+                    const flashClass = pct < 20 ? ' need-danger' : '';
+                    html += `<div class="need-item">
+                        <span class="need-icon">${need.icon}</span>
+                        <div class="need-bar-wrap">
+                            <div class="need-bar${flashClass}" style="width:${pct}%;background:${barColor}"></div>
+                        </div>
+                        <span class="need-label">${Math.round(pct)}</span>
+                    </div>`;
+                }
+                html += `</div></div>`;
+            }
+
+            // 编辑模式保存按钮
+            if (vitalsEditMode) {
+                html += `<button id="vitals-save-btn" class="vitals-save-btn">保存修改</button>`;
+            }
 
             // 时间信息
             const now = Date.now();
@@ -861,6 +1000,9 @@ function loadVitalsData() {
             }
 
             container.innerHTML = html;
+
+            // 绑定保存按钮
+            document.getElementById('vitals-save-btn')?.addEventListener('click', saveVitalsEdits);
         })
         .catch(() => {
             container.innerHTML = '<div class="no-data">加载失败</div>';
@@ -871,10 +1013,367 @@ function initVitalsSocket() {
     if (!gameState.socket) return;
     gameState.socket.on('vitals:update', () => {
         const panel = document.getElementById('vitals-panel');
-        if (panel && !panel.classList.contains('hidden')) {
+        if (panel && !panel.classList.contains('hidden') && !vitalsEditMode) {
             loadVitalsData();
         }
     });
+}
+
+function saveVitalsEdits() {
+    const inputs = document.querySelectorAll('.vitals-input');
+    const body = {};
+    let changed = 0;
+    inputs.forEach(inp => {
+        const key = inp.dataset.key;
+        const newVal = parseFloat(inp.value);
+        if (!isNaN(newVal) && vitalsLastData && newVal !== parseFloat(vitalsLastData[key])) {
+            body[key] = newVal;
+            changed++;
+        }
+    });
+    if (changed === 0) return;
+
+    const btn = document.getElementById('vitals-save-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+
+    fetch('/vitals/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            vitalsEditMode = false;
+            const editBtn = document.getElementById('vitals-edit-btn');
+            if (editBtn) { editBtn.textContent = '✏️'; editBtn.title = '编辑体征'; }
+            loadVitalsData();
+        } else {
+            if (btn) { btn.disabled = false; btn.textContent = '保存失败，重试'; }
+        }
+    })
+    .catch(() => {
+        if (btn) { btn.disabled = false; btn.textContent = '保存失败，重试'; }
+    });
+}
+
+// ============================================
+// Diary Panel (日志频道)
+// ============================================
+let _diaryEntries = [];
+
+function initCalendarPanel() {
+    const btn = document.getElementById('calendar-toggle-btn');
+    const panel = document.getElementById('calendar-panel');
+    if (!btn || !panel) return;
+
+    btn.onclick = () => {
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) loadDiaryData();
+    };
+    panel.querySelector('.panel-close').onclick = () => panel.classList.add('hidden');
+}
+
+function loadDiaryData() {
+    const container = document.getElementById('calendar-content');
+    if (!container) return;
+    container.innerHTML = '<div style="color:#a08060;font-size:11px;">加载中...</div>';
+
+    fetch('/notion/diary')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.entries || data.entries.length === 0) {
+                container.innerHTML = '<div style="color:#a08060;font-size:11px;padding:8px;">还没有日志</div>';
+                return;
+            }
+            _diaryEntries = data.entries;
+            renderDiaryList(container);
+        })
+        .catch(() => {
+            container.innerHTML = '<div style="color:#c06050;font-size:11px;">加载失败</div>';
+        });
+}
+
+function renderDiaryList(container) {
+    let html = '';
+    for (const entry of _diaryEntries) {
+        const date = entry.createdAt ? entry.createdAt.slice(5, 10) : '';
+        const safeTitle = esc(entry.title);
+        html += `<div class="diary-entry" data-id="${entry.id}" data-title="${safeTitle}">`;
+        html += `<span class="diary-date">${date}</span>`;
+        html += `<span class="diary-title">${safeTitle}</span>`;
+        html += `<span class="diary-arrow">\u203a</span>`;
+        html += '</div>';
+    }
+    container.innerHTML = html;
+    container.querySelectorAll('.diary-entry').forEach(el => {
+        el.onclick = () => loadDiaryDetail(container, el.dataset.id, el.dataset.title);
+    });
+}
+
+function loadDiaryDetail(container, pageId, title) {
+    container.innerHTML = '<div class="diary-detail"><div style="color:#a08060;font-size:11px;">加载中...</div></div>';
+
+    fetch('/notion/diary/' + pageId)
+        .then(r => r.json())
+        .then(data => {
+            let html = '<div class="diary-detail">';
+            html += '<span class="diary-detail-back">\u2190 返回列表</span>';
+            html += '<div class="diary-detail-title">' + esc(title) + '</div>';
+            html += '<div class="diary-detail-body">';
+            if (!data.blocks || data.blocks.length === 0) {
+                html += '<p style="color:#a08060;">(空页面)</p>';
+            } else {
+                for (const b of data.blocks) {
+                    const t = esc(b.text);
+                    if (b.type === 'heading_1') html += '<p style="font-size:13px;font-weight:bold;">' + t + '</p>';
+                    else if (b.type === 'heading_2') html += '<p style="font-size:12px;font-weight:bold;">' + t + '</p>';
+                    else if (b.type === 'heading_3') html += '<p style="font-size:11px;font-weight:bold;">' + t + '</p>';
+                    else if (b.type === 'bulleted_list_item') html += '<p>\u00b7 ' + t + '</p>';
+                    else if (b.type === 'numbered_list_item') html += '<p>\u2022 ' + t + '</p>';
+                    else if (b.type === 'quote') html += '<p style="border-left:2px solid #d0b090;padding-left:6px;color:#7a5a4a;">' + t + '</p>';
+                    else if (b.type === 'divider') html += '<hr style="border:none;border-top:1px solid #e8c4b8;margin:6px 0;">';
+                    else html += '<p>' + t + '</p>';
+                }
+            }
+            html += '</div></div>';
+            container.innerHTML = html;
+            container.querySelector('.diary-detail-back').onclick = () => renderDiaryList(container);
+        })
+        .catch(() => {
+            let html = '<div class="diary-detail">';
+            html += '<span class="diary-detail-back">\u2190 返回列表</span>';
+            html += '<p style="color:#c06050;font-size:11px;">加载失败</p></div>';
+            container.innerHTML = html;
+            container.querySelector('.diary-detail-back').onclick = () => renderDiaryList(container);
+        });
+}
+
+// ============================================
+// Schedule Calendar Panel (日程总览)
+// ============================================
+let _scheduleItems = [];
+let _scheduleMonth = new Date();
+
+function initNotionPanel() {
+    const btn = document.getElementById('notion-toggle-btn');
+    const panel = document.getElementById('notion-panel');
+    if (!btn || !panel) return;
+
+    btn.onclick = () => {
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) loadScheduleData();
+    };
+    panel.querySelector('.panel-close').onclick = () => panel.classList.add('hidden');
+}
+
+function loadScheduleData() {
+    const container = document.getElementById('notion-content');
+    if (!container) return;
+    container.innerHTML = '<div style="color:#a08060;font-size:11px;">加载中...</div>';
+    _scheduleMonth = new Date();
+
+    fetch('/notion/schedule')
+        .then(r => r.json())
+        .then(data => {
+            _scheduleItems = data.items || [];
+            renderCalendar(container);
+        })
+        .catch(() => {
+            container.innerHTML = '<div style="color:#c06050;font-size:11px;">加载失败</div>';
+        });
+}
+
+function renderCalendar(container) {
+    const year = _scheduleMonth.getFullYear();
+    const month = _scheduleMonth.getMonth();
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+
+    // Build event map: date string -> items
+    const eventMap = {};
+    for (const item of _scheduleItems) {
+        if (!item.date) continue;
+        const d = item.date.slice(0, 10);
+        if (!eventMap[d]) eventMap[d] = [];
+        eventMap[d].push(item);
+    }
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+    let html = '';
+    html += '<div class="cal-month-nav">';
+    html += '<button id="cal-prev">\u2039</button>';
+    html += '<span>' + year + '年' + monthNames[month] + '</span>';
+    html += '<button id="cal-next">\u203a</button>';
+    html += '</div>';
+
+    html += '<div class="cal-grid">';
+    const dows = ['日','一','二','三','四','五','六'];
+    for (const d of dows) html += '<div class="cal-dow">' + d + '</div>';
+
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-day cal-empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const hasEvent = eventMap[dateStr];
+        const isToday = dateStr === todayStr;
+        const allDone = hasEvent && hasEvent.every(e => e.done);
+        let cls = 'cal-day';
+        if (isToday) cls += ' cal-today-day';
+        if (hasEvent) cls += ' cal-has-event';
+        if (allDone) cls += ' cal-done';
+        html += '<div class="' + cls + '" data-date="' + dateStr + '">' + d + '</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="cal-events-list" id="cal-events-list"></div>';
+    container.innerHTML = html;
+
+    showEventsForDate(todayStr, eventMap);
+
+    container.querySelectorAll('.cal-day.cal-has-event').forEach(el => {
+        el.onclick = () => showEventsForDate(el.dataset.date, eventMap);
+    });
+
+    document.getElementById('cal-prev').onclick = () => {
+        _scheduleMonth.setMonth(_scheduleMonth.getMonth() - 1);
+        renderCalendar(container);
+    };
+    document.getElementById('cal-next').onclick = () => {
+        _scheduleMonth.setMonth(_scheduleMonth.getMonth() + 1);
+        renderCalendar(container);
+    };
+}
+
+function showEventsForDate(dateStr, eventMap) {
+    const list = document.getElementById('cal-events-list');
+    if (!list) return;
+    const items = eventMap[dateStr];
+    if (!items || items.length === 0) {
+        list.innerHTML = '<div style="font-size:10px;color:#a08060;padding:4px 0;">' + dateStr + ' 无日程</div>';
+        return;
+    }
+    let html = '<div style="font-size:9px;color:#a08060;margin-bottom:3px;">' + dateStr + '</div>';
+    for (const item of items) {
+        const icon = item.done ? '\u2705' : '\u2b1c';
+        html += '<div class="cal-event-item">';
+        html += '<span class="cal-ev-icon">' + icon + '</span>';
+        html += '<span class="cal-ev-name' + (item.done ? ' cal-ev-done' : '') + '">' + esc(item.name) + '</span>';
+        if (item.tags && item.tags.length > 0) html += '<span class="cal-ev-tags">' + item.tags.join(', ') + '</span>';
+        html += '</div>';
+    }
+    list.innerHTML = html;
+}
+
+// ============================================
+// Pet widget (HUD 常驻卡片)
+// ============================================
+const PET_BEHAVIOR_TEXT = {
+    idle: '趴着发呆', sleeping: '睡觉中 zzZ', eating: '在吃猫粮',
+    playing: '在玩毛线球', following_awen: '跟着阿文',
+    wandering: '到处溜达', grooming: '在舔毛'
+};
+
+function updatePetWidget(pet) {
+    if (!pet) return;
+
+    // Behavior text
+    const behaviorEl = document.getElementById('pet-widget-behavior');
+    if (behaviorEl) {
+        behaviorEl.textContent = PET_BEHAVIOR_TEXT[pet.behavior] || pet.behavior;
+    }
+
+    // Mood emoji
+    const moodEl = document.getElementById('pet-mood-emoji');
+    if (moodEl && pet.mood) {
+        moodEl.textContent = pet.mood.emoji;
+    }
+
+    // Mini bars
+    const barsEl = document.getElementById('pet-widget-bars');
+    if (barsEl && pet.vitals) {
+        const keys = ['hunger', 'energy', 'happiness', 'cleanliness'];
+        const colors = ['#e8a040', '#88aa44', '#cc6688', '#6688cc'];
+        barsEl.innerHTML = keys.map((k, i) => {
+            const val = Math.round(pet.vitals[k] || 0);
+            return '<div class="pet-mini-bar"><div class="pet-mini-bar-fill" style="width:' + val + '%;background:' + colors[i] + '"></div></div>';
+        }).join('');
+    }
+}
+
+// ============================================
+// Pet panel (模拟人生4风格)
+// ============================================
+function openPetPanel() {
+    const panel = document.getElementById('cat-panel');
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    const homeScene = game.scene.getScene('HomeScene');
+    if (homeScene && homeScene.refreshCatPanel) homeScene.refreshCatPanel();
+}
+
+const PET_ACTION_FEEDBACK = {
+    pet:   ['土豆开心地蹭了蹭你!', '土豆发出了呼噜声~', '土豆翻了个肚皮让你摸!'],
+    feed:  ['土豆吃得很开心!', '咔嚓咔嚓...吃完了!', '土豆舔了舔嘴巴~'],
+    play:  ['土豆追着毛线球跑!', '土豆扑来扑去好兴奋!', '土豆玩累了，躺下来喘气~'],
+    groom: ['土豆乖乖让你梳毛~', '梳得好舒服，土豆眯起了眼', '毛变得蓬松又漂亮!']
+};
+
+function showPetFeedback(text) {
+    const fb = document.getElementById('pet-feedback');
+    if (!fb) return;
+    fb.textContent = text;
+    fb.classList.remove('hidden');
+    clearTimeout(fb._timer);
+    fb._timer = setTimeout(() => fb.classList.add('hidden'), 2500);
+}
+
+function doPetAction(action) {
+    fetch('/pet/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const msgs = PET_ACTION_FEEDBACK[action] || ['土豆看了你一眼'];
+                showPetFeedback(msgs[Math.floor(Math.random() * msgs.length)]);
+                if (data.pet) updatePetWidget(data.pet);
+                const homeScene = game.scene.getScene('HomeScene');
+                if (homeScene && homeScene.refreshCatPanel) homeScene.refreshCatPanel();
+            }
+        })
+        .catch(() => {});
+}
+
+// ============================================
+// Pet actions (global for onclick)
+// ============================================
+function petAction(action) {
+    const homeScene = game.scene.getScene('HomeScene');
+    if (!homeScene || !homeScene.walkToCat) {
+        doPetAction(action);
+        return;
+    }
+
+    // Show walking feedback
+    showPetFeedback('大宝走向土豆...');
+
+    // Disable action buttons while walking
+    document.querySelectorAll('.pet-action-btn').forEach(b => b.disabled = true);
+
+    homeScene.walkToCat(() => {
+        // Re-enable buttons
+        document.querySelectorAll('.pet-action-btn').forEach(b => b.disabled = false);
+        // Now do the actual interaction
+        doPetAction(action);
+    });
+}
+
+function initCatPanel() {
+    const panel = document.getElementById('cat-panel');
+    if (!panel) return;
+    panel.querySelector('.panel-close')?.addEventListener('click', () => panel.classList.add('hidden'));
 }
 
 // Start
@@ -889,6 +1388,9 @@ initStatusEdit();
 initMoneyPanel();
 initVitalsPanel();
 initFoodLogPanel();
+initCalendarPanel();
+initNotionPanel();
+initCatPanel();
 updateClock();
 setInterval(updateClock, 30000);
 

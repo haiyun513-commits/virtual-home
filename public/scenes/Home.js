@@ -201,6 +201,7 @@ class HomeScene extends Phaser.Scene {
         // ============================================
         this.createCharacter('awen',  { x: 15 * TS, y: 5  * TS });
         this.createCharacter('dabao', { x: 5  * TS, y: 15 * TS });
+        this.createCat({ x: 16 * TS, y: 6 * TS });
 
         // ============================================
         // Click to move (dabao only)
@@ -231,8 +232,8 @@ class HomeScene extends Phaser.Scene {
                         for (let dc = 0; dc < sw; dc++)
                             this.removeFurnitureAt(subX + dc, subY + dr);
                 } else if (this._selectedFrames && this._selectedFrames.length > 0) {
-                    for (const { dc, dr, frame } of this._selectedFrames) {
-                        this.placeFurnitureTile(subX + dc, subY + dr, frame);
+                    for (const { dc, dr, frame, sheet } of this._selectedFrames) {
+                        this.placeFurnitureTile(subX + dc, subY + dr, frame, sheet);
                     }
                 }
                 return;
@@ -254,6 +255,21 @@ class HomeScene extends Phaser.Scene {
         // ============================================
         this.updateLighting();
         this.time.addEvent({ delay: 60000, callback: this.updateLighting, callbackScope: this, loop: true });
+
+        // ============================================
+        // Apply stored server state (fix race condition: fetch may resolve before scene is ready)
+        // ============================================
+        if (gameState.serverState && gameState.serverState.users) {
+            for (const [user, data] of Object.entries(gameState.serverState.users)) {
+                this.moveCharacterToRoom(user, data.room, data.activity);
+            }
+        }
+        // Apply cat state
+        if (gameState.serverState && gameState.serverState.pet) {
+            const pet = gameState.serverState.pet;
+            const PBT = { idle:'趴着发呆', sleeping:'zzZ', eating:'吃猫粮', playing:'玩毛线球', following_awen:'跟着阿文', wandering:'溜达', grooming:'舔毛' };
+            this.moveCatToRoom(pet.room, PBT[pet.behavior]);
+        }
     }
 
     // ----------------------------------------
@@ -269,7 +285,7 @@ class HomeScene extends Phaser.Scene {
             'living-room': 'wood-light',
             'kitchen':     'tile-white',
             'bathroom':    'tile-blue',
-            'outdoor':     null,
+            'outdoor':     'grass',
         };
 
         for (const [id, r] of Object.entries(this.roomDefs)) {
@@ -278,7 +294,25 @@ class HomeScene extends Phaser.Scene {
             const rx = r.x * TS, ry = r.y * TS;
             const rw = r.w * TS, rh = r.h * TS;
 
-            if (style.startsWith('wood')) {
+            if (style === 'grass') {
+                // Grass floor — natural green patches with dirt specks
+                const grassColors = [0x6DB840, 0x7EC850, 0x5CA838, 0x8BD060];
+                const patchSize = 8;
+                for (let py = ry; py < ry + rh; py += patchSize) {
+                    for (let px = rx; px < rx + rw; px += patchSize) {
+                        const ci = ((px / patchSize | 0) * 7 + (py / patchSize | 0) * 13) % grassColors.length;
+                        floorGfx.fillStyle(grassColors[ci], 1);
+                        floorGfx.fillRect(px, py, patchSize, patchSize);
+                    }
+                }
+                // Subtle dirt specks (deterministic positions based on room coords)
+                floorGfx.fillStyle(0xA09060, 0.25);
+                for (let i = 0; i < 15; i++) {
+                    const dx = ((i * 37 + 11) % rw);
+                    const dy = ((i * 53 + 7) % rh);
+                    floorGfx.fillCircle(rx + dx, ry + dy, 2);
+                }
+            } else if (style.startsWith('wood')) {
                 // Wood plank floor — horizontal planks with staggered joints
                 const dark = style === 'wood-dark';
                 const plankH = 8; // plank height in px
@@ -370,8 +404,6 @@ class HomeScene extends Phaser.Scene {
     drawDefaultFurniture(TS) {
         // No default furniture — use furniture editor to place items
         this.bedTileX = 18; this.bedTileY = 4;
-        // Debug: show version info
-        // Debug text removed
     }
 
     // ----------------------------------------
@@ -444,7 +476,13 @@ class HomeScene extends Phaser.Scene {
         sprite.setInteractive();
         sprite.on('pointerdown', (ptr) => {
             ptr.event.stopPropagation();
-            this.showCharacterPanel(name);
+            this.interactionHandled = true;
+            const nearby = this.getEntitiesNear(container.x, container.y);
+            if (nearby.length > 1) {
+                this.showEntityPicker(nearby, ptr.worldX, ptr.worldY);
+            } else {
+                this.showCharacterPanel(name);
+            }
         });
 
         // Name label
@@ -522,10 +560,41 @@ class HomeScene extends Phaser.Scene {
             });
         }
 
-        if (char.currentRoom === roomId && char._initialized) return;
-        char.currentRoom = roomId;
+        // Determine destination: zone target (based on activity) or room entry
+        let dest = roomDef.entry;
+        let zoneTarget = false;
+        if (activity && this._zoneDefs) {
+            const zoneMap = [
+                { keywords: ['睡', '躺', '休息'], zone: 'bed' },
+                { keywords: ['喝水', '咖啡', '牛奶', '热水'], zone: 'kitchen' },
+                { keywords: ['洗澡', '淋浴'], zone: 'bathroom' },
+                { keywords: ['厕所'], zone: 'bathroom' },
+                { keywords: ['弹琴', '练琴'], zone: 'piano' },
+                { keywords: ['游戏', '看剧'], zone: 'tv' },
+                { keywords: ['电脑', '工作'], zone: 'computer' },
+                { keywords: ['出门', '跑步', '散步', '晒太阳', '骑车', '咖啡店'], zone: 'outdoor' },
+            ];
+            for (const mapping of zoneMap) {
+                if (mapping.keywords.some(k => activity.includes(k))) {
+                    const zoneDef = this._zoneDefs[mapping.zone];
+                    if (zoneDef) {
+                        dest = { x: Math.floor(zoneDef.x / TS), y: Math.floor(zoneDef.y / TS) };
+                        zoneTarget = true;
+                    }
+                    break;
+                }
+            }
+        }
 
-        const dest = roomDef.entry;
+        // Skip if already at destination (same room + same tile)
+        if (char._initialized) {
+            const curTileX = Math.floor(char.container.x / TS);
+            const curTileY = Math.floor(char.container.y / TS);
+            if (char.currentRoom === roomId && curTileX === dest.x && curTileY === dest.y) return;
+            // Same room but different zone target → still walk there
+            if (char.currentRoom === roomId && !zoneTarget) return;
+        }
+        char.currentRoom = roomId;
 
         // First load: teleport directly, no walking animation
         if (!char._initialized) {
@@ -692,6 +761,326 @@ class HomeScene extends Phaser.Scene {
     }
 
     // ----------------------------------------
+    // Cat (土豆)
+    // ----------------------------------------
+    createCat(pos) {
+        const container = this.add.container(pos.x, pos.y).setDepth(45);
+        const shadow = this.add.ellipse(0, 12, 20, 6, 0x000000, 0.2);
+        const sprite = this.add.image(0, -2, 'char-tudou').setScale(1);
+        container.add([shadow, sprite]);
+
+        sprite.setInteractive();
+        sprite.on('pointerdown', (ptr) => {
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            const nearby = this.getEntitiesNear(container.x, container.y);
+            if (nearby.length > 1) {
+                this.showEntityPicker(nearby, ptr.worldX, ptr.worldY);
+            } else {
+                this.showCatPanel();
+            }
+        });
+
+        const nameLabel = this.add.text(pos.x, pos.y - 16, '土豆', {
+            font: '8px monospace', fill: '#ffffff',
+            backgroundColor: '#cc8844cc', padding: { x: 2, y: 1 }
+        }).setOrigin(0.5, 1).setDepth(46);
+
+        const actBubble = this.add.text(pos.x, pos.y - 26, '', {
+            font: '8px monospace', fill: '#5a4020',
+            backgroundColor: '#fff8eedd', padding: { x: 3, y: 1 },
+            wordWrap: { width: 80 }
+        }).setOrigin(0.5, 1).setDepth(47).setVisible(false);
+
+        const bobTween = this.tweens.add({
+            targets: container, y: pos.y - 1,
+            duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+
+        this.catSprite = {
+            container, nameLabel, actBubble, bobTween,
+            currentRoom: 'awen-room', isMoving: false,
+            _initialized: false, _walkTween: null
+        };
+    }
+
+    updateCatPos(px, py) {
+        const cat = this.catSprite;
+        if (!cat) return;
+        cat.container.setPosition(px, py);
+        cat.nameLabel.setPosition(px, py - 16);
+        cat.actBubble.setPosition(px, py - 26);
+    }
+
+    moveCatToRoom(roomId, behaviorText) {
+        const cat = this.catSprite;
+        if (!cat) return;
+        const TS = TILE_SIZE * SCALE;
+        const roomDef = this.roomDefs[roomId];
+        if (!roomDef) return;
+
+        if (behaviorText) {
+            cat.actBubble.setText(behaviorText);
+            cat.actBubble.setVisible(true);
+            this.time.delayedCall(5000, () => { if (cat.actBubble) cat.actBubble.setVisible(false); });
+        }
+
+        // Cat goes to an offset position so it doesn't overlap with character entry points
+        const entry = roomDef.entry;
+        const offsets = [{dx:1,dy:1},{dx:-1,dy:1},{dx:1,dy:-1},{dx:-1,dy:-1},{dx:2,dy:0},{dx:0,dy:2}];
+        let dest = entry;
+        for (const o of offsets) {
+            const tx = entry.x + o.dx, ty = entry.y + o.dy;
+            if (this.walkGrid && this.walkGrid[ty] && this.walkGrid[ty][tx] === 0) {
+                dest = { x: tx, y: ty };
+                break;
+            }
+        }
+
+        // Skip if same room (unless first init)
+        if (cat._initialized && cat.currentRoom === roomId) return;
+        cat.currentRoom = roomId;
+
+        if (!cat._initialized) {
+            cat._initialized = true;
+            this.teleportCat(dest.x, dest.y);
+            return;
+        }
+
+        const curTileX = Math.floor(cat.container.x / TS);
+        const curTileY = Math.floor(cat.container.y / TS);
+
+        if (this.pathfinder) {
+            this.pathfinder.findPath(curTileX, curTileY, dest.x, dest.y, (path) => {
+                if (path && path.length > 1) this.walkCatPath(path);
+                else this.teleportCat(dest.x, dest.y);
+            });
+            this.pathfinder.calculate();
+        } else {
+            this.teleportCat(dest.x, dest.y);
+        }
+    }
+
+    teleportCat(tileX, tileY) {
+        const cat = this.catSprite;
+        if (!cat) return;
+        if (cat.bobTween) { cat.bobTween.stop(); cat.bobTween = null; }
+        const TS = TILE_SIZE * SCALE;
+        const px = tileX * TS + TS / 2;
+        const py = tileY * TS + TS / 2;
+        this.updateCatPos(px, py);
+        cat.bobTween = this.tweens.add({
+            targets: cat.container, y: cat.container.y - 1,
+            duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+    }
+
+    walkCatPath(path) {
+        const cat = this.catSprite;
+        if (!cat || path.length < 2) return;
+        if (cat._walkTween) { cat._walkTween.stop(); cat._walkTween = null; }
+        if (cat.bobTween) { cat.bobTween.stop(); cat.bobTween = null; }
+        cat.isMoving = true;
+        cat._path = path;
+        cat._pathIdx = 1;
+        this.walkCatNextStep();
+    }
+
+    walkCatNextStep() {
+        const cat = this.catSprite;
+        if (!cat || cat._pathIdx >= cat._path.length) {
+            if (cat) {
+                cat.isMoving = false;
+                cat.bobTween = this.tweens.add({
+                    targets: cat.container, y: cat.container.y - 1,
+                    duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                });
+            }
+            return;
+        }
+        const TS = TILE_SIZE * SCALE;
+        const step = cat._path[cat._pathIdx];
+        const tx = step.x * TS + TS / 2;
+        const ty = step.y * TS + TS / 2;
+
+        cat._walkTween = this.tweens.add({
+            targets: cat.container, x: tx, y: ty,
+            duration: 150, ease: 'Linear',
+            onUpdate: () => { this.updateCatPos(cat.container.x, cat.container.y); },
+            onComplete: () => { cat._walkTween = null; cat._pathIdx++; this.walkCatNextStep(); }
+        });
+    }
+
+    showCatPanel() {
+        const panel = document.getElementById('cat-panel');
+        if (!panel) return;
+        panel.classList.remove('hidden');
+        this.refreshCatPanel();
+    }
+
+    // Walk dabao to a tile adjacent to the cat, then fire callback
+    walkToCat(callback) {
+        if (!this.catSprite) { if (callback) callback(); return; }
+        const TS = TILE_SIZE * SCALE;
+        const catTileX = Math.floor(this.catSprite.container.x / TS);
+        const catTileY = Math.floor(this.catSprite.container.y / TS);
+
+        // Check if dabao is already adjacent (within 1 tile)
+        const dabao = this.characters.dabao;
+        if (dabao) {
+            const dTileX = Math.floor(dabao.container.x / TS);
+            const dTileY = Math.floor(dabao.container.y / TS);
+            if (Math.abs(dTileX - catTileX) <= 1 && Math.abs(dTileY - catTileY) <= 1) {
+                if (callback) callback();
+                return;
+            }
+        }
+
+        // Find an adjacent walkable tile
+        const offsets = [{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:-1},{dx:-1,dy:-1},{dx:1,dy:1},{dx:-1,dy:1}];
+        let targetTile = null;
+        for (const o of offsets) {
+            const tx = catTileX + o.dx;
+            const ty = catTileY + o.dy;
+            if (tx >= 0 && ty >= 0 && tx < MAP_WIDTH && ty < MAP_HEIGHT && this.walkGrid[ty] && this.walkGrid[ty][tx] === 0) {
+                targetTile = { x: tx * TS + TS / 2, y: ty * TS + TS / 2 };
+                break;
+            }
+        }
+
+        if (!targetTile) {
+            // No adjacent walkable tile, just callback immediately
+            if (callback) callback();
+            return;
+        }
+
+        this.moveCharacterToAction('dabao', targetTile, null, callback);
+    }
+
+    refreshCatPanel() {
+        const pet = gameState.serverState?.pet;
+        if (!pet) return;
+
+        // Age
+        const ageEl = document.getElementById('pet-profile-age');
+        if (ageEl) {
+            const age = pet.age !== undefined ? pet.age : 0;
+            ageEl.textContent = '已收养 ' + age + ' 天';
+        }
+
+        // Mood card
+        if (pet.mood) {
+            const moodCard = document.getElementById('pet-mood-card');
+            if (moodCard) moodCard.style.background = pet.mood.color;
+            const moodEmoji = document.getElementById('pet-mood-emoji-big');
+            if (moodEmoji) moodEmoji.textContent = pet.mood.emoji;
+            const moodText = document.getElementById('pet-mood-text');
+            if (moodText) moodText.textContent = pet.mood.text;
+        }
+
+        // Gradient need bars
+        const vitalsEl = document.getElementById('cat-vitals');
+        if (vitalsEl && pet.vitals) {
+            const bars = [
+                { key: 'hunger', label: '饱食', icon: '🍖', cssClass: '' },
+                { key: 'energy', label: '精力', icon: '⚡', cssClass: 'energy' },
+                { key: 'happiness', label: '心情', icon: '💕', cssClass: 'happiness' },
+                { key: 'cleanliness', label: '清洁', icon: '✨', cssClass: 'cleanliness' }
+            ];
+            vitalsEl.innerHTML = bars.map(b => {
+                const val = Math.round(pet.vitals[b.key] || 0);
+                return '<div class="pet-need-row">' +
+                    '<span class="pet-need-icon">' + b.icon + '</span>' +
+                    '<span class="pet-need-label">' + b.label + '</span>' +
+                    '<div class="pet-need-bar-wrap">' +
+                    '<div class="pet-need-bar ' + b.cssClass + '" style="width:' + val + '%"></div></div>' +
+                    '<span class="pet-need-value">' + val + '</span></div>';
+            }).join('');
+        }
+
+        // Behavior + room
+        const behaviorEl = document.getElementById('cat-behavior');
+        if (behaviorEl) {
+            const PBT = { idle:'趴着发呆', sleeping:'睡觉中 zzZ', eating:'在吃猫粮', playing:'在玩毛线球', following_awen:'跟着阿文', wandering:'到处溜达', grooming:'在舔毛' };
+            const roomNames = { 'awen-room':'阿文房间', 'living-room':'客厅', 'kitchen':'厨房', 'piano-room':'琴房', 'bathroom':'卫生间' };
+            behaviorEl.textContent = (PBT[pet.behavior] || pet.behavior) + ' · ' + (roomNames[pet.room] || pet.room);
+        }
+    }
+
+    // ----------------------------------------
+    // Get all interactive entities near a position (for overlap click detection)
+    // ----------------------------------------
+    getEntitiesNear(px, py, threshold) {
+        threshold = threshold || 48;
+        const entities = [];
+        for (const [name, char] of Object.entries(this.characters)) {
+            const dx = char.container.x - px;
+            const dy = char.container.y - py;
+            if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+                entities.push({ type: 'character', name: name, label: name === 'awen' ? '📚 阿文' : '💻 大宝' });
+            }
+        }
+        if (this.catSprite) {
+            const dx = this.catSprite.container.x - px;
+            const dy = this.catSprite.container.y - py;
+            if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+                entities.push({ type: 'cat', name: 'tudou', label: '🐱 土豆' });
+            }
+        }
+        return entities;
+    }
+
+    // ----------------------------------------
+    // Show entity picker popup when multiple entities overlap
+    // ----------------------------------------
+    showEntityPicker(entities, worldX, worldY) {
+        // Remove existing picker
+        let picker = document.getElementById('entity-picker');
+        if (picker) picker.remove();
+
+        picker = document.createElement('div');
+        picker.id = 'entity-picker';
+
+        picker.innerHTML = entities.map(e =>
+            '<div class="picker-option" data-type="' + e.type + '" data-name="' + e.name + '">' + e.label + '</div>'
+        ).join('');
+
+        // Position near click relative to game container
+        const canvas = document.querySelector('canvas');
+        const rect = canvas.getBoundingClientRect();
+        const cam = this.cameras.main;
+        const screenX = (worldX - cam.scrollX) * cam.zoom + rect.left;
+        const screenY = (worldY - cam.scrollY) * cam.zoom + rect.top;
+
+        picker.style.left = Math.min(screenX, window.innerWidth - 120) + 'px';
+        picker.style.top = Math.max(screenY - 10, 10) + 'px';
+        document.body.appendChild(picker);
+
+        const self = this;
+        picker.querySelectorAll('.picker-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                picker.remove();
+                if (opt.dataset.type === 'cat') {
+                    self.showCatPanel();
+                } else {
+                    self.showCharacterPanel(opt.dataset.name);
+                }
+            });
+        });
+
+        // Close on click outside (delayed to avoid immediate trigger)
+        setTimeout(() => {
+            const closeHandler = (e) => {
+                if (!picker.contains(e.target)) {
+                    picker.remove();
+                    document.removeEventListener('pointerdown', closeHandler);
+                }
+            };
+            document.addEventListener('pointerdown', closeHandler);
+        }, 100);
+    }
+
+    // ----------------------------------------
     // Get room ID at tile position
     // ----------------------------------------
     getRoomAt(tileX, tileY) {
@@ -793,8 +1182,34 @@ class HomeScene extends Phaser.Scene {
             .then(state => {
                 this.furnitureData = state.furniture || [];
                 this.renderFurniture();
+                // Apply saved zone positions
+                if (state.zones) this.applyZonePositions(state.zones);
             })
             .catch(() => { this.furnitureData = []; });
+    }
+
+    // Reposition zone markers/zones to saved positions
+    applyZonePositions(zones) {
+        if (!zones || !this._zoneObjects) return;
+        for (const [id, pos] of Object.entries(zones)) {
+            const obj = this._zoneObjects[id];
+            if (!obj || pos.x == null || pos.y == null) continue;
+            obj.def.x = pos.x;
+            obj.def.y = pos.y;
+            obj.marker.setPosition(pos.x, pos.y);
+            obj.emojiLabel.setPosition(pos.x - 6, pos.y - 16);
+            obj.zone.setPosition(pos.x, pos.y);
+        }
+    }
+
+    // Collect current zone positions for saving
+    getZonePositions() {
+        const positions = {};
+        if (!this._zoneObjects) return positions;
+        for (const [id, obj] of Object.entries(this._zoneObjects)) {
+            positions[id] = { x: Math.round(obj.def.x), y: Math.round(obj.def.y) };
+        }
+        return positions;
     }
 
     renderFurniture() {
@@ -821,13 +1236,14 @@ class HomeScene extends Phaser.Scene {
         }
     }
 
-    placeFurnitureTile(tileX, tileY, frame) {
+    placeFurnitureTile(tileX, tileY, frame, sheetKey) {
         this.removeFurnitureAt(tileX, tileY);
+        const sheet = sheetKey || 'fantasy';
         // Position on 16px sub-grid (native tile size)
         const spr = this.add.sprite(
             tileX * TILE_SIZE + TILE_SIZE / 2,
             tileY * TILE_SIZE + TILE_SIZE / 2,
-            'fantasy',
+            sheet,
             frame
         ).setScale(1).setDepth(15);
 
@@ -841,8 +1257,9 @@ class HomeScene extends Phaser.Scene {
         spr._furnitureTy = tileY;
         spr._furnitureAngle = this.currentAngle;
 
-        // Save with rotation angle
+        // Save with rotation angle and sheet key
         const item = { frame, tx: tileX, ty: tileY };
+        if (sheet !== 'fantasy') item.sheet = sheet;
         if (this.currentAngle !== 0) {
             item.angle = this.currentAngle;
         }
@@ -966,27 +1383,7 @@ class HomeScene extends Phaser.Scene {
             this.showFridgePopup();
         });
 
-        // ====== Phase 2: 模拟人生交互对象 ======
-        // Helper: create interactive zone with visual marker
-        // Character moves to zone center (x, y) when performing actions
-        const makeZone = (x, y, w, h, markerEmoji, title, desc, actions) => {
-            // Visual marker (pulsing dot)
-            const marker = this.add.circle(x, y, 4, 0xff6b6b, 0.7).setDepth(50);
-            this.tweens.add({ targets: marker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
-            this.add.text(x - 6, y - 16, markerEmoji, { fontSize: '10px' }).setDepth(50);
-
-            const zone = this.add.zone(x, y, w, h)
-                .setInteractive({ useHandCursor: true }).setDepth(5);
-            zone.on('pointerdown', (ptr) => {
-                if (this.editMode) return; // allow furniture placement on zones
-                ptr.event.stopPropagation();
-                this.interactionHandled = true;
-                this.showActionPopup(title, desc, actions, { x, y });
-            });
-            return zone;
-        };
-
-        // Helper: compute zone center from room definition + offset
+        // ====== Phase 2: 模拟人生交互对象 (data-driven, draggable in edit mode) ======
         const roomCenter = (roomId, offX, offY) => {
             const r = this.roomDefs[roomId];
             if (!r) return { x: 0, y: 0 };
@@ -996,63 +1393,87 @@ class HomeScene extends Phaser.Scene {
             };
         };
 
-        // 🚿 Bathroom - 洗澡/上厕所
         const bath = roomCenter('bathroom');
-        makeZone(bath.x, bath.y, 3 * TS, 2 * TS, '🚿',
-            '🚿 浴室', '洗个澡恢复卫生值', [
-                { label: '洗澡', action: 'shower', icon: '🚿' },
-                { label: '上厕所', action: 'toilet', icon: '🚽' }
-            ]);
-
-        // 📺 TV / Sofa (living-room) - 看剧 (left side of living room)
-        const lr = this.roomDefs['living-room'];
-        const tvX = (lr.x + 3) * TS, tvY = (lr.y + 2) * TS;
-        makeZone(tvX, tvY, 3 * TS, 2 * TS, '📺',
-            '📺 客厅娱乐', '放松一下', [
-                { label: '看剧', action: 'tv', icon: '📺' },
-                { label: '打游戏', action: 'game', icon: '🎮' }
-            ]);
-
-        // 🛏️ Bed (awen-room) - 睡觉 (upper-right area of room)
-        const ar = this.roomDefs['awen-room'];
-        const bedX = (ar.x + ar.w - 2.5) * TS, bedY = (ar.y + 2) * TS;
-        makeZone(bedX, bedY, 3 * TS, 3 * TS, '🛏️',
-            '🛏️ 床', '休息一下', [
-                { label: '睡觉', action: 'sleep', icon: '😴' }
-            ]);
-
-        // 🚰 Water tap (kitchen) - 喝水
         const kit = roomCenter('kitchen');
-        makeZone(kit.x, kit.y, 3 * TS, 2 * TS, '💧',
-            '🚰 厨房', '补充水分', [
-                { label: '喝水', action: 'drink_water', icon: '💧' },
-                { label: '泡咖啡', action: 'drink_coffee', icon: '☕' }
-            ]);
-
-        // 🎹 Piano (大宝的工作室) - 练琴 (upper-left area of room)
+        const lr = this.roomDefs['living-room'];
+        const ar = this.roomDefs['awen-room'];
         const pr = this.roomDefs['piano-room'];
-        const pianoX = (pr.x + 2) * TS, pianoY = (pr.y + 2) * TS;
-        makeZone(pianoX, pianoY, 3 * TS, 2 * TS, '🎹',
-            '🎹 钢琴', '来弹首曲子', [
-                { label: '认真练琴', action: 'piano_serious', icon: '🎵' },
-                { label: '随便弹弹', action: 'piano_casual', icon: '🎶' }
-            ]);
+        const od = this.roomDefs['outdoor'];
 
-        // 💻 Computer (大宝的工作室) - 电脑 (upper-right area of room)
-        const compX = (pr.x + 5) * TS, compY = (pr.y + 2) * TS;
-        makeZone(compX, compY, 3 * TS, 2 * TS, '💻',
-            '💻 电脑', '打开电脑', [
-                { label: '玩电脑', action: 'computer_play', icon: '🎮' },
-                { label: '工作', action: 'computer_work', icon: '📊' }
-            ]);
+        // Zone definitions: id → config
+        this._zoneDefs = {
+            bathroom: { x: bath.x, y: bath.y, w: 3*TS, h: 2*TS, icon: '🚿',
+                title: '🚿 浴室', desc: '洗个澡恢复卫生值',
+                actions: [{ label: '洗澡', action: 'shower', icon: '🚿' }, { label: '上厕所', action: 'toilet', icon: '🚽' }] },
+            tv: { x: (lr.x+3)*TS, y: (lr.y+2)*TS, w: 3*TS, h: 2*TS, icon: '📺',
+                title: '📺 客厅娱乐', desc: '放松一下',
+                actions: [{ label: '看剧', action: 'tv', icon: '📺' }, { label: '打游戏', action: 'game', icon: '🎮' }] },
+            bed: { x: (ar.x+ar.w-2.5)*TS, y: (ar.y+2)*TS, w: 3*TS, h: 3*TS, icon: '🛏️',
+                title: '🛏️ 床', desc: '休息一下',
+                actions: [{ label: '睡觉', action: 'sleep', icon: '😴' }] },
+            kitchen: { x: kit.x, y: kit.y, w: 3*TS, h: 2*TS, icon: '🍳',
+                title: '🍳 厨房', desc: '做点吃的或喝的',
+                actions: [{ label: '做饭', action: 'cook', icon: '🍳' }, { label: '喝水', action: 'drink_water', icon: '💧' }, { label: '泡咖啡', action: 'drink_coffee', icon: '☕' }] },
+            piano: { x: (pr.x+2)*TS, y: (pr.y+2)*TS, w: 3*TS, h: 2*TS, icon: '🎹',
+                title: '🎹 钢琴', desc: '来弹首曲子',
+                actions: [{ label: '认真练琴', action: 'piano_serious', icon: '🎵' }, { label: '随便弹弹', action: 'piano_casual', icon: '🎶' }] },
+            computer: { x: (pr.x+5)*TS, y: (pr.y+2)*TS, w: 3*TS, h: 2*TS, icon: '💻',
+                title: '💻 电脑', desc: '打开电脑',
+                actions: [{ label: '玩电脑', action: 'computer_play', icon: '🎮' }, { label: '工作', action: 'computer_work', icon: '📊' }] },
+            outdoor: { x: (od.x+od.w/2)*TS, y: (od.y+od.h/2)*TS, w: 4*TS, h: 3*TS, icon: '🚪',
+                title: '🌿 出门', desc: '出去走走',
+                actions: [{ label: '跑步', action: 'outdoor_run', icon: '🏃' }, { label: '散步', action: 'outdoor_walk', icon: '🚶' }, { label: '晒太阳', action: 'outdoor_sun', icon: '☀️' },
+                    { label: '去超市', action: 'outdoor_market', icon: '🛒' }, { label: '坐地铁', action: 'outdoor_subway', icon: '🚇' }, { label: '去学校', action: 'outdoor_school', icon: '🏫' }] },
+        };
 
-        // 🧊 Fridge marker (already has separate zone above)
+        // Create zones with markers — positions will be updated from server state
+        this._zoneObjects = {};
+        for (const [id, def] of Object.entries(this._zoneDefs)) {
+            const marker = this.add.circle(def.x, def.y, 5, 0xff6b6b, 0.7).setDepth(50);
+            this.tweens.add({ targets: marker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+            const emojiLabel = this.add.text(def.x - 6, def.y - 16, def.icon, { fontSize: '10px' }).setDepth(50);
+
+            const zone = this.add.zone(def.x, def.y, def.w, def.h)
+                .setInteractive({ useHandCursor: true }).setDepth(5);
+            zone.on('pointerdown', (ptr) => {
+                if (this.editMode) return;
+                ptr.event.stopPropagation();
+                this.interactionHandled = true;
+                this.showActionPopup(def.title, def.desc, def.actions, { x: def.x, y: def.y });
+            });
+
+            this._zoneObjects[id] = { marker, emojiLabel, zone, def };
+        }
+
+        // 🧊 Fridge marker
         const fridgeMarker = this.add.circle(fridgeX + TS, fridgeY + TS * 1.5, 4, 0xff6b6b, 0.7).setDepth(50);
         this.tweens.add({ targets: fridgeMarker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
 
         // 📋 Schedule marker
         const schedMarker = this.add.circle(sbx + TS, sby + TS, 4, 0xff6b6b, 0.7).setDepth(50);
         this.tweens.add({ targets: schedMarker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+        // 📱 Takeout phone (living room right wall)
+        const phoneX = 11 * TS, phoneY = 11 * TS + 4;
+        // Phone visual (small wall-mounted phone)
+        const phoneGfx = this.add.graphics().setDepth(4);
+        phoneGfx.fillStyle(0x444444, 1);
+        phoneGfx.fillRoundedRect(phoneX, phoneY, TS * 1.2, TS * 1.5, 4);
+        phoneGfx.fillStyle(0x66ccff, 1);
+        phoneGfx.fillRoundedRect(phoneX + 4, phoneY + 4, TS * 1.2 - 8, TS - 4, 2);
+        this.add.text(phoneX + 6, phoneY + 4, '📱', { font: '12px monospace' }).setDepth(5);
+        this.add.text(phoneX + 2, phoneY + TS + 2, '外卖', { font: '8px sans-serif', color: '#ffffff' }).setDepth(5);
+
+        const phoneZone = this.add.zone(phoneX + TS * 0.6, phoneY + TS * 0.75, TS * 1.5, TS * 2)
+            .setInteractive({ useHandCursor: true }).setDepth(5);
+        phoneZone.on('pointerdown', (ptr) => {
+            if (this.editMode) return;
+            ptr.event.stopPropagation();
+            this.interactionHandled = true;
+            this.showTakeoutPopup();
+        });
+        const phoneMarker = this.add.circle(phoneX + TS * 0.6, phoneY + TS * 0.75, 4, 0xff6b6b, 0.7).setDepth(50);
+        this.tweens.add({ targets: phoneMarker, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
     }
 
     showSchedulePopup() {
@@ -1115,6 +1536,125 @@ class HomeScene extends Phaser.Scene {
             })
             .catch(() => {
                 content.innerHTML = '<div class="no-data">加载失败</div>';
+            });
+    }
+
+    // ----------------------------------------
+    // Takeout popup (外卖面板)
+    // ----------------------------------------
+    showTakeoutPopup() {
+        const popup = document.getElementById('takeout-popup');
+        const statusEl = document.getElementById('takeout-status');
+        const menuEl = document.getElementById('takeout-menu');
+        if (!popup || !menuEl) return;
+
+        statusEl.innerHTML = '';
+        menuEl.innerHTML = '<div class="no-data">加载中...</div>';
+        popup.classList.remove('hidden');
+
+        // Check delivery status + load menu in parallel
+        Promise.all([
+            fetch('/state/light').then(r => r.json()),
+            fetch('/takeout/menu').then(r => r.json())
+        ]).then(([state, menuData]) => {
+            // Show delivery status if active
+            if (state.delivery && state.delivery.active) {
+                const arrive = new Date(state.delivery.arriveAt);
+                const now = new Date();
+                const remainMin = Math.max(0, Math.round((arrive - now) / 60000));
+                const who = state.delivery.orderer === 'dabao' ? '大宝' : '阿文';
+                statusEl.innerHTML = `
+                    <div class="takeout-delivery-status">
+                        <div class="delivery-active">🛵 外卖配送中</div>
+                        <div class="delivery-info">${who}点的 <b>${state.delivery.restaurant}</b> ${state.delivery.dish}</div>
+                        <div class="delivery-info">💰 $${state.delivery.cost} · 约${remainMin}分钟到</div>
+                    </div>`;
+                menuEl.innerHTML = '<div class="no-data">外卖已在路上，等送到再点哦</div>';
+                return;
+            }
+
+            if (state.cooking && state.cooking.active) {
+                statusEl.innerHTML = `
+                    <div class="takeout-delivery-status">
+                        <div class="delivery-active">🍳 阿文在做饭</div>
+                        <div class="delivery-info">${state.cooking.recipe}，再等等吧</div>
+                    </div>`;
+                menuEl.innerHTML = '<div class="no-data">阿文在做饭呢，先不点了</div>';
+                return;
+            }
+
+            // Render menu
+            const tierNames = { fast: '🍔 快餐', casual: '🍜 正餐', upscale: '✨ 高档' };
+            const grouped = {};
+            menuData.restaurants.forEach(r => {
+                const tier = r.tier;
+                if (!grouped[tier]) grouped[tier] = [];
+                grouped[tier].push(r);
+            });
+
+            let html = '';
+            for (const [tier, restaurants] of Object.entries(grouped)) {
+                html += `<div class="takeout-tier">${tierNames[tier] || tier}</div>`;
+                for (const r of restaurants) {
+                    html += `<div class="takeout-restaurant">
+                        <div class="takeout-r-header">
+                            <span class="takeout-r-name">${r.name}</span>
+                            <span class="takeout-r-price">${r.priceRange}</span>
+                            <span class="takeout-r-time">~${r.deliveryMin}min</span>
+                        </div>
+                        <div class="takeout-dishes">`;
+                    for (const dish of r.dishes) {
+                        html += `<button class="takeout-dish-btn" data-restaurant="${r.name}" data-dish="${dish}">${dish}</button>`;
+                    }
+                    html += `</div></div>`;
+                }
+            }
+            menuEl.innerHTML = html;
+
+            // Bind click handlers
+            menuEl.querySelectorAll('.takeout-dish-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const restaurant = btn.dataset.restaurant;
+                    const dish = btn.dataset.dish;
+                    this.orderTakeout(restaurant, dish);
+                });
+            });
+        }).catch(() => {
+            menuEl.innerHTML = '<div class="no-data">加载失败</div>';
+        });
+    }
+
+    orderTakeout(restaurant, dish) {
+        const statusEl = document.getElementById('takeout-status');
+        const menuEl = document.getElementById('takeout-menu');
+
+        menuEl.innerHTML = '<div class="no-data">下单中...</div>';
+
+        fetch('/order-takeout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restaurant, dish, orderer: 'dabao' })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    let msg = '下单失败';
+                    if (data.error === 'already_ordered') msg = `已经点过了！${data.restaurant} 的外卖还在路上`;
+                    else if (data.error === 'already_cooking') msg = '阿文在做饭呢，等他做完再点';
+                    menuEl.innerHTML = `<div class="no-data">${msg}</div>`;
+                    return;
+                }
+                const arriveTime = new Date(data.arriveAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                statusEl.innerHTML = `
+                    <div class="takeout-delivery-status">
+                        <div class="delivery-active">✅ 下单成功！</div>
+                        <div class="delivery-info">🏪 ${data.restaurant} · ${data.dish}</div>
+                        <div class="delivery-info">💰 $${data.cost} · 约${data.deliveryMin}分钟 · 预计${arriveTime}到</div>
+                    </div>`;
+                menuEl.innerHTML = '';
+            })
+            .catch(() => {
+                menuEl.innerHTML = '<div class="no-data">网络错误</div>';
             });
     }
 
@@ -1192,6 +1732,10 @@ class HomeScene extends Phaser.Scene {
 
         const SERVER = '';  // same origin
 
+        if (action === 'cook') {
+            this.showCookingPanel();
+            return;
+        }
         if (action === 'drink_water') {
             fetch(SERVER + '/drink', {
                 method: 'POST',
@@ -1209,6 +1753,20 @@ class HomeScene extends Phaser.Scene {
             return;
         }
 
+        // Outdoor actions → update room + activity
+        const outdoorDesc = {
+            outdoor_run: '出门跑步', outdoor_walk: '出门散步', outdoor_sun: '出门晒太阳',
+            outdoor_market: '去超市买东西', outdoor_subway: '坐地铁出门', outdoor_school: '去学校'
+        };
+        if (outdoorDesc[action]) {
+            fetch(SERVER + '/awen-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room: 'outdoor', status: outdoorDesc[action] })
+            });
+            return;
+        }
+
         // Generic action (shower, toilet, sleep, game, tv)
         fetch(SERVER + '/action', {
             method: 'POST',
@@ -1218,17 +1776,25 @@ class HomeScene extends Phaser.Scene {
     }
 
     executeDabaoAction(action) {
+        if (action === 'cook') {
+            this.showCookingPanel();
+            return;
+        }
         const desc = {
             shower: '洗澡中', toilet: '上厕所', sleep: '在阿文床上躺着',
             game: '玩游戏', tv: '看剧', drink_water: '喝水', drink_coffee: '喝咖啡',
             piano_serious: '认真练琴', piano_casual: '随便弹弹',
-            computer_play: '玩电脑', computer_work: '在工作'
+            computer_play: '玩电脑', computer_work: '在工作',
+            outdoor_run: '出门跑步', outdoor_walk: '出门散步', outdoor_sun: '晒太阳',
+            outdoor_market: '去超市', outdoor_subway: '坐地铁', outdoor_school: '去学校'
         };
         const rooms = {
             shower: 'bathroom', toilet: 'bathroom', sleep: 'awen-room',
             game: 'living-room', tv: 'living-room', drink_water: 'kitchen', drink_coffee: 'kitchen',
             piano_serious: 'piano-room', piano_casual: 'piano-room',
-            computer_play: 'piano-room', computer_work: 'piano-room'
+            computer_play: 'piano-room', computer_work: 'piano-room',
+            outdoor_run: 'outdoor', outdoor_walk: 'outdoor', outdoor_sun: 'outdoor',
+            outdoor_market: 'outdoor', outdoor_subway: 'outdoor', outdoor_school: 'outdoor'
         };
 
         fetch('/custom-status', {
@@ -1236,6 +1802,114 @@ class HomeScene extends Phaser.Scene {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user: 'dabao', status: desc[action] || '在忙', room: rooms[action] || 'living-room' })
         });
+    }
+
+    // ----------------------------------------
+    // Cooking panel: fetch recipes, pick one, start cooking
+    // ----------------------------------------
+    showCookingPanel() {
+        const popup = document.getElementById('action-popup');
+        const titleEl = document.getElementById('action-popup-title');
+        const descEl = document.getElementById('action-popup-desc');
+        const btnsEl = document.getElementById('action-popup-buttons');
+        if (!popup) return;
+
+        titleEl.textContent = '🍳 做饭';
+        descEl.innerHTML = '<div style="color:#a07060;font-size:11px;">正在查看冰箱...</div>';
+        btnsEl.innerHTML = '';
+        popup.classList.remove('hidden');
+
+        const isAwen = gameState.currentUser === 'awen';
+
+        fetch('/cook/suggest')
+            .then(r => r.json())
+            .then(data => {
+                btnsEl.innerHTML = '';
+                if (!data.available || data.total === 0) {
+                    descEl.innerHTML = '<div style="color:#c06050;font-size:11px;">冰箱里没有食材能做菜 😢</div>';
+                    // 点外卖按钮
+                    const orderBtn = document.createElement('button');
+                    orderBtn.className = 'action-btn';
+                    orderBtn.textContent = '🛵 点外卖';
+                    orderBtn.onclick = () => {
+                        popup.classList.add('hidden');
+                        if (isAwen) {
+                            fetch('/order-takeout', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({})
+                            });
+                        } else {
+                            fetch('/custom-status', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ user: 'dabao', status: '点外卖', room: 'living-room' })
+                            });
+                        }
+                    };
+                    btnsEl.appendChild(orderBtn);
+                    return;
+                }
+
+                // 合并所有菜品
+                const all = [
+                    ...(data.available.simple || []),
+                    ...(data.available.medium || []),
+                    ...(data.available.complex || [])
+                ];
+                descEl.innerHTML = `<div style="color:#6a8a60;font-size:11px;">可做 ${all.length} 道菜（5分钟）</div>`;
+
+                for (const recipe of all) {
+                    const btn = document.createElement('button');
+                    btn.className = 'action-btn';
+                    btn.style.textAlign = 'left';
+                    const stars = '⭐'.repeat(recipe.satisfaction || 1);
+                    btn.innerHTML = `<span>${recipe.name}</span> <span style="font-size:10px;color:#a08060;">${recipe.ingredients.join('+')} ${stars}</span>`;
+                    btn.onclick = () => {
+                        popup.classList.add('hidden');
+                        if (isAwen) {
+                            fetch('/cook/start', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ recipe: recipe.name })
+                            });
+                        } else {
+                            fetch('/custom-status', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ user: 'dabao', status: `在做${recipe.name}`, room: 'kitchen' })
+                            });
+                        }
+                    };
+                    btnsEl.appendChild(btn);
+                }
+
+                // 也可以点外卖
+                const orderBtn = document.createElement('button');
+                orderBtn.className = 'action-btn';
+                orderBtn.style.opacity = '0.7';
+                orderBtn.textContent = '🛵 不想做了，点外卖';
+                orderBtn.onclick = () => {
+                    popup.classList.add('hidden');
+                    if (isAwen) {
+                        fetch('/order-takeout', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({})
+                        });
+                    } else {
+                        fetch('/custom-status', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user: 'dabao', status: '点外卖', room: 'living-room' })
+                        });
+                    }
+                };
+                btnsEl.appendChild(orderBtn);
+            })
+            .catch(() => {
+                descEl.innerHTML = '<div style="color:#c06050;font-size:11px;">加载失败</div>';
+            });
     }
 
     // Update palette highlight rectangle during drag selection
@@ -1268,11 +1942,14 @@ class HomeScene extends Phaser.Scene {
         const c2 = Math.max(s.col, e.col);
         const r2 = Math.max(s.row, e.row);
 
+        const sheetKey = this._currentSheetKey || 'fantasy';
         this._selectedFrames = [];
         for (let r = r1; r <= r2; r++) {
             for (let c = c1; c <= c2; c++) {
-                const frame = (this.palettePack * this._srcRows + r) * this._srcCols + c;
-                this._selectedFrames.push({ dc: c - c1, dr: r - r1, frame });
+                const frame = sheetKey === 'park'
+                    ? r * this._srcCols + c
+                    : (this.palettePack * this._srcRows + r) * this._srcCols + c;
+                this._selectedFrames.push({ dc: c - c1, dr: r - r1, frame, sheet: sheetKey });
             }
         }
 
@@ -1288,9 +1965,10 @@ class HomeScene extends Phaser.Scene {
         const info = document.getElementById('selected-tile-info');
         if (info) {
             const n = this._selectedFrames.length;
+            const label = sheetKey === 'park' ? '户外' : `Pack${this.palettePack + 1}`;
             info.textContent = n === 1
-                ? `Pack${this.palettePack + 1} #${this._selectedFrames[0].frame}`
-                : `Pack${this.palettePack + 1} ${this._selectionWidth}×${this._selectionHeight} (${n})`;
+                ? `${label} #${this._selectedFrames[0].frame}`
+                : `${label} ${this._selectionWidth}×${this._selectionHeight} (${n})`;
         }
     }
 
@@ -1312,6 +1990,7 @@ class HomeScene extends Phaser.Scene {
         this._selectedFrames = [];
         this._selectionWidth = 1;
         this._selectionHeight = 1;
+        this._currentSheetKey = 'fantasy';
 
         // Cursor matches selection size (starts at 1×1 tile = 16×16)
         const S = TILE_SIZE;
@@ -1322,7 +2001,34 @@ class HomeScene extends Phaser.Scene {
 
         this.game.canvas.addEventListener('contextmenu', this._ctxHandler = e => e.preventDefault());
 
+        // Make zone markers draggable in edit mode
+        this._draggingZone = null;
+        if (this._zoneObjects) {
+            for (const [id, obj] of Object.entries(this._zoneObjects)) {
+                // Enlarge hit area for easier grabbing
+                obj.marker.setRadius(8).setAlpha(1).setInteractive({ useHandCursor: true });
+                obj.marker._zoneId = id;
+                obj.marker.on('pointerdown', (ptr) => {
+                    ptr.event.stopPropagation();
+                    this.interactionHandled = true;
+                    this._draggingZone = id;
+                });
+            }
+        }
+
         this.input.on('pointermove', this._onEditMove = (ptr) => {
+            // Handle zone marker dragging
+            if (this._draggingZone) {
+                const obj = this._zoneObjects[this._draggingZone];
+                if (obj) {
+                    obj.def.x = ptr.worldX;
+                    obj.def.y = ptr.worldY;
+                    obj.marker.setPosition(ptr.worldX, ptr.worldY);
+                    obj.emojiLabel.setPosition(ptr.worldX - 6, ptr.worldY - 16);
+                    obj.zone.setPosition(ptr.worldX, ptr.worldY);
+                }
+                return;
+            }
             // Handle palette dragging
             if (this._palDragging) {
                 this.paletteContainer.setPosition(
@@ -1357,6 +2063,7 @@ class HomeScene extends Phaser.Scene {
         });
 
         this.input.on('pointerup', this._onEditUp = () => {
+            this._draggingZone = null;
             if (this._palSelecting) {
                 this._palSelecting = false;
                 this._finalizePalSelection();
@@ -1378,7 +2085,18 @@ class HomeScene extends Phaser.Scene {
         this._catClickHandler = (e) => {
             document.querySelectorAll('.fcat-btn').forEach(x => x.classList.remove('active'));
             e.currentTarget.classList.add('active');
-            this.palettePack = parseInt(e.currentTarget.dataset.pack);
+            const packVal = e.currentTarget.dataset.pack;
+            if (packVal === 'park') {
+                this._currentSheetKey = 'park';
+                this._srcCols = 24;
+                this._srcRows = 16;
+                this.palettePack = 0;
+            } else {
+                this._currentSheetKey = 'fantasy';
+                this._srcCols = 48;
+                this._srcRows = 48;
+                this.palettePack = parseInt(packVal);
+            }
             this.rebuildPaletteTiles();
         };
         document.querySelectorAll('.fcat-btn').forEach(b => {
@@ -1491,12 +2209,15 @@ class HomeScene extends Phaser.Scene {
         if (!this._palRT) return;
         this._palRT.clear();
         const S = TILE_SIZE;
+        const sheetKey = this._currentSheetKey || 'fantasy';
         const SRC_COLS = this._srcCols;
         const SRC_ROWS = this._srcRows;
         for (let row = 0; row < SRC_ROWS; row++) {
             for (let col = 0; col < SRC_COLS; col++) {
-                const frame = (this.palettePack * SRC_ROWS + row) * SRC_COLS + col;
-                this._palRT.drawFrame('fantasy', frame, col * S, row * S);
+                const frame = sheetKey === 'park'
+                    ? row * SRC_COLS + col
+                    : (this.palettePack * SRC_ROWS + row) * SRC_COLS + col;
+                this._palRT.drawFrame(sheetKey, frame, col * S, row * S);
             }
         }
         if (this.paletteHighlight) {
@@ -1531,11 +2252,20 @@ class HomeScene extends Phaser.Scene {
             this._onEditUp = null;
         }
         this._palDragging = false;
+        this._draggingZone = null;
         if (this._catClickHandler) {
             document.querySelectorAll('.fcat-btn').forEach(b => {
                 b.removeEventListener('click', this._catClickHandler);
             });
             this._catClickHandler = null;
+        }
+
+        // Restore zone markers to normal size and remove drag interactivity
+        if (this._zoneObjects) {
+            for (const obj of Object.values(this._zoneObjects)) {
+                obj.marker.setRadius(5).removeInteractive();
+                obj.marker.removeAllListeners('pointerdown');
+            }
         }
 
         const btn = document.getElementById('edit-mode-btn');
@@ -1544,7 +2274,7 @@ class HomeScene extends Phaser.Scene {
         fetch('/save-furniture', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ furniture: this.furnitureData })
+            body: JSON.stringify({ furniture: this.furnitureData, zones: this.getZonePositions() })
         });
     }
 

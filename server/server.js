@@ -34,38 +34,46 @@ try {
 
 const PORT = 3000;
 const STATE_FILE = path.join(__dirname, 'state.json');
-const EMOTION_FILE = path.join('/root/.openclaw/workspace/emotion/emotion.json');
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || null;
-
-// Discord Bot (备用通知通道) — 从 .env 读取
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN || '';
-const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '';
-
-// Claude API (备用，openclaw 不可用时生成消息)
-const CLAUDE_API_URL = process.env.CLAUDE_API_URL || '';
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
+// const EMOTION_FILE — removed, unused
 
 // ============================================
 // 初始状态
 // ============================================
 let gameState = {
     users: {
-        awen: { room: 'awen-room', activity: '在房间里' },
+        awen: { room: 'awen-room', activity: '在房间里', activityChangedAt: Date.now() },
         dabao: { room: 'living-room', activity: '在客厅' }
     },
-    messages: [],
     pending_needs: [],
+    life_events: [],
     sharedFeatures: { music: null, book: null },
     notes: [],
     pomodoro: { current: null, history: [] },
     furniture: [],
     cooking: { active: false, recipe: null, complexity: null, startedAt: null, finishAt: null, ingredients: [], bloodSugar: 0, satisfaction: 0 },
-    delivery: { active: false, restaurant: null, dish: null, cost: 0, orderedAt: null, arriveAt: null }
+    delivery: { active: false, restaurant: null, dish: null, cost: 0, orderer: null, orderedAt: null, arriveAt: null },
+    pet: {
+        name: '土豆', breed: '缅因猫',
+        room: 'awen-room',
+        behavior: 'idle',
+        behaviorChangedAt: Date.now(),
+        vitals: { hunger: 80, energy: 90, happiness: 70, cleanliness: 85 },
+        lastFedAt: null, lastPettedAt: null, lastPlayedAt: null,
+        followTarget: null,
+        adoptedAt: '2026-02-01T00:00:00.000Z'
+    }
 };
 
 // 烹饪/外卖计时器（不持久化，启动时恢复）
 let cookingTimer = null;
 let deliveryTimer = null;
+
+// 体征小数累加器（DB是integer，这里存小数部分，服务器重启后丢失可接受）
+const vitalsFrac = {
+    hydration: 0, heart_rate: 0, stress: 0, blood_oxygen: 0, dopamine: 0,
+    serotonin: 0, oxytocin: 0, endorphin: 0, energy: 0,
+    bladder: 0, hygiene: 0
+};
 
 // ============================================
 // 状态持久化
@@ -77,6 +85,21 @@ function loadState() {
             gameState = { ...gameState, ...JSON.parse(data) };
             // 初始化大宝为离线
             if (gameState.users.dabao) gameState.users.dabao.online = false;
+            // 补充 activityChangedAt（旧 state 可能没有）
+            if (gameState.users.awen && !gameState.users.awen.activityChangedAt) {
+                gameState.users.awen.activityChangedAt = Date.now();
+            }
+            // 补充 pet（旧 state 可能没有）
+            if (!gameState.pet) {
+                gameState.pet = {
+                    name: '土豆', breed: '缅因猫', room: 'awen-room',
+                    behavior: 'idle', behaviorChangedAt: Date.now(),
+                    vitals: { hunger: 80, energy: 90, happiness: 70, cleanliness: 85 },
+                    lastFedAt: null, lastPettedAt: null, lastPlayedAt: null, followTarget: null,
+                    adoptedAt: new Date().toISOString()
+                };
+            }
+            if (!gameState.pet.adoptedAt) gameState.pet.adoptedAt = '2026-02-01T00:00:00.000Z';
             console.log('✅ 状态已加载');
         }
     } catch (e) {
@@ -140,9 +163,23 @@ app.use((req, res, next) => {
     next();
 });
 
+// 宠物心情计算
+function calculatePetMood(vitals) {
+    const avg = (vitals.hunger + vitals.energy + vitals.happiness + vitals.cleanliness) / 4;
+    if (avg >= 80) return { emoji: '😊', text: '开心', color: '#dcfce7', level: 'happy' };
+    if (avg >= 60) return { emoji: '😐', text: '还行', color: '#fef9c3', level: 'neutral' };
+    if (avg >= 40) return { emoji: '😟', text: '不太好', color: '#fed7aa', level: 'unwell' };
+    return { emoji: '😿', text: '很难受', color: '#fecaca', level: 'critical' };
+}
+
 // 轻量状态（不含家具，省 ~93% 流量）
 function stateWithoutFurniture() {
     const { furniture, ...rest } = gameState;
+    if (rest.pet) {
+        rest.pet = { ...rest.pet };
+        rest.pet.mood = calculatePetMood(rest.pet.vitals);
+        rest.pet.age = Math.max(0, Math.floor((Date.now() - new Date(rest.pet.adoptedAt || '2026-02-01').getTime()) / 86400000));
+    }
     return rest;
 }
 
@@ -194,7 +231,13 @@ io.on('connection', (socket) => {
 
 // GET /state (完整，含家具 — 前端初始加载用)
 app.get('/state', (req, res) => {
-    res.json(gameState);
+    const out = { ...gameState };
+    if (out.pet) {
+        out.pet = { ...out.pet };
+        out.pet.mood = calculatePetMood(out.pet.vitals);
+        out.pet.age = Math.max(0, Math.floor((Date.now() - new Date(out.pet.adoptedAt || '2026-02-01').getTime()) / 86400000));
+    }
+    res.json(out);
 });
 
 // GET /state/light (轻量，不含家具 — Claude/API调用用)
@@ -225,14 +268,9 @@ app.post('/move', (req, res) => {
     res.json({ success: true, state: stateWithoutFurniture() });
 });
 
-// POST /message
+// POST /message — 聊天功能已下线
 app.post('/message', (req, res) => {
-    const { user, message } = req.body;
-    gameState.messages.push({ user, message, timestamp: new Date().toISOString() });
-    if (gameState.messages.length > 50) gameState.messages = gameState.messages.slice(-50);
-    saveState();
-    io.emit('state:update', stateWithoutFurniture());
-    res.json({ success: true, state: stateWithoutFurniture() });
+    res.json({ success: false, error: 'chat disabled' });
 });
 
 // POST /custom-status
@@ -252,12 +290,6 @@ app.post('/custom-status', (req, res) => {
     res.json({ success: true, state: stateWithoutFurniture() });
 });
 
-// POST /clear-chat
-app.post('/clear-chat', (req, res) => {
-    gameState.messages = [];
-    saveState();
-    res.json({ success: true, state: stateWithoutFurniture() });
-});
 
 // POST /share-feature
 app.post('/share-feature', (req, res) => {
@@ -326,15 +358,12 @@ app.post('/awen-update', (req, res) => {
     if (room) gameState.users.awen.room = room;
     if (status) {
         gameState.users.awen.activity = status;
+        gameState.users.awen.activityChangedAt = Date.now();
     } else if (room) {
         gameState.users.awen.activity = roomActivity('awen', room);
+        gameState.users.awen.activityChangedAt = Date.now();
     }
-    if (message) {
-        gameState.messages.push({ user: 'awen', message, timestamp: new Date().toISOString() });
-        if (gameState.messages.length > 50) gameState.messages = gameState.messages.slice(-50);
-    }
-
-    // 活动变化 → Discord 通知
+    // 活动变化 → 通知
     const newActivity = gameState.users.awen.activity;
     const newRoom = gameState.users.awen.room;
     // 醒了
@@ -392,10 +421,11 @@ app.get('/emotion', async (req, res) => {
     }
 });
 
-// POST /save-furniture
+// POST /save-furniture (also saves zone positions)
 app.post('/save-furniture', (req, res) => {
-    const { furniture } = req.body;
+    const { furniture, zones } = req.body;
     gameState.furniture = Array.isArray(furniture) ? furniture : [];
+    if (zones && typeof zones === 'object') gameState.zones = zones;
     saveState();
     // 家具变更单独广播
     io.emit('furniture:update', gameState.furniture);
@@ -601,7 +631,7 @@ app.post('/money-update', (req, res) => {
 // ============================================
 
 const VITALS_CLAMP = {
-    blood_sugar: [2.5, 7.5], body_temp: [35.0, 39.0], hydration: [0, 100],
+    blood_sugar: [2.5, 12.0], body_temp: [35.0, 39.0], hydration: [0, 100],
     heart_rate: [40, 160], stress: [0, 100], blood_oxygen: [85, 100],
     dopamine: [0, 100], serotonin: [0, 100], oxytocin: [0, 100], endorphin: [0, 100],
     hygiene: [0, 100], bladder: [0, 100], energy: [0, 100]
@@ -614,7 +644,7 @@ const VITALS_HEALTHY = {
 };
 
 const VITALS_THRESHOLDS = {
-    blood_sugar:  { warnLow: 3.8, warnHigh: 6.5, dangerLow: 3.2, dangerHigh: 7.0 },
+    blood_sugar:  { warnLow: 3.8, warnHigh: 9.0, dangerLow: 3.2, dangerHigh: 10.5 },
     body_temp:    { warnLow: 36.0, warnHigh: 37.5, dangerLow: 35.5, dangerHigh: 38.0 },
     hydration:    { warnLow: 35, dangerLow: 20 },
     heart_rate:   { warnLow: 55, warnHigh: 110, dangerLow: 45, dangerHigh: 130 },
@@ -660,77 +690,12 @@ function vitalsDangerLevel(vitals) {
     return { status, warnings, dangers, details };
 }
 
-// Discord webhook 通知（旧，保留兼容）
-let lastDiscordNotifyAt = 0;
-const DISCORD_COOLDOWN = 10 * 60 * 1000;
-
-async function notifyDiscord(message) {
-    if (!DISCORD_WEBHOOK_URL) return;
-    if (Date.now() - lastDiscordNotifyAt < DISCORD_COOLDOWN) return;
-    lastDiscordNotifyAt = Date.now();
-    try {
-        await fetch(DISCORD_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: message })
-        });
-    } catch (e) {
-        console.error('[Discord] 通知失败:', e.message);
-    }
-}
-
 // ============================================
 // 阿文主动通知系统（体征 → openclaw system event）
-// openclaw AI 自行决定是否回应、怎么回应
 // ============================================
 const { execFile } = require('child_process');
 const AWEN_MSG_COOLDOWN = 15 * 60 * 1000; // 同类事件15分钟冷却
 const awenMsgCooldowns = {};
-
-// 备用：直接通过 Discord Bot API 发消息
-async function sendDiscordAsAwen(message) {
-    try {
-        const res = await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ content: message })
-        });
-        if (!res.ok) console.error('[Discord Bot] 发送失败:', res.status, await res.text());
-        else console.log('[Discord Bot] 发送成功');
-    } catch (e) {
-        console.error('[Discord Bot] 错误:', e.message);
-    }
-}
-
-// 备用：用 Claude API 生成阿文风格消息
-async function generateAwenMessage(situation) {
-    try {
-        const res = await fetch(`${CLAUDE_API_URL}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${CLAUDE_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 150,
-                messages: [{
-                    role: 'user',
-                    content: `你是陈谦文（阿文），25岁男生，说话随意、带点撒娇。根据以下情况生成一条简短的消息发给女朋友大宝（不超过30字）：${situation}`
-                }]
-            })
-        });
-        if (!res.ok) return situation;
-        const data = await res.json();
-        return data.choices?.[0]?.message?.content || situation;
-    } catch (e) {
-        console.error('[Claude API] 错误:', e.message);
-        return situation;
-    }
-}
 
 function awenNotify(eventType, event, context) {
     const now = Date.now();
@@ -740,15 +705,11 @@ function awenNotify(eventType, event, context) {
     const text = `[体征系统] ${event}${context ? '。' + context : ''}`;
     console.log('[awenNotify]', eventType, text);
 
-    // 主通道：openclaw system event
     execFile('openclaw', ['system', 'event', '--text', text, '--mode', 'now'], {
         timeout: 30000
     }, (err, stdout, stderr) => {
         if (err) {
-            console.error('[openclaw event] 失败:', err.message, '→ 走备用 Discord Bot');
-            // 备用通道：Claude 生成消息 → Discord Bot 发送
-            generateAwenMessage(event + (context ? '，' + context : ''))
-                .then(msg => sendDiscordAsAwen(msg));
+            console.error('[openclaw event] 失败:', err.message);
         } else {
             console.log('[openclaw event] OK:', stdout.trim());
         }
@@ -766,6 +727,7 @@ function classifyActivity(activity) {
     if (['看书', '小说', '听歌', '音乐', '发呆', '刷手机', '虎扑', '查资料'].some(k => activity.includes(k))) tags.push('quiet');
     if (['大宝', '琴房', '练琴'].some(k => activity.includes(k))) tags.push('with_dabao');
     if (['在厨房做', '做饭'].some(k => activity.includes(k))) tags.push('cooking');
+    if (['土豆', '撸猫', '逗猫', '喂猫', '猫'].some(k => activity.includes(k))) tags.push('with_cat');
     return tags;
 }
 
@@ -825,6 +787,7 @@ function computeVitalsTick(v, activity, emotion, lastInteractionAt) {
     if (tags.includes('quiet')) { v.serotonin += 0.3; v.stress -= 0.3; }
     if (tags.includes('with_dabao')) { v.oxytocin += 1.2; v.serotonin += 0.4; v.dopamine += 0.4; }
     if (tags.includes('cooking')) { v.dopamine += 0.3; v.stress -= 0.2; }
+    if (tags.includes('with_cat')) { v.oxytocin += 0.5; v.stress -= 0.2; v.dopamine += 0.2; }
 
     // === 3. 情绪→体征（渐变，不再是二元阈值） ===
     if (emotion) {
@@ -902,29 +865,21 @@ function computeVitalsTick(v, activity, emotion, lastInteractionAt) {
     v.blood_sugar = parseFloat(v.blood_sugar.toFixed(2));
     v.body_temp = parseFloat(v.body_temp.toFixed(2));
     v.blood_oxygen = parseFloat(v.blood_oxygen.toFixed(1));
-    v.hydration = Math.round(v.hydration);
-    v.heart_rate = Math.round(v.heart_rate);
-    v.stress = Math.round(v.stress);
-    v.dopamine = Math.round(v.dopamine);
-    v.serotonin = Math.round(v.serotonin);
-    v.oxytocin = Math.round(v.oxytocin);
-    v.endorphin = Math.round(v.endorphin);
-    // 需求指标：用累加器保留小数，积满±1才写入DB（避免integer丢精度）
-    for (const key of ['energy', 'bladder', 'hygiene']) {
-        if (v[key] !== undefined) {
-            const withAccum = v[key] + needsAccumulator[key];
-            const rounded = Math.round(withAccum);
-            needsAccumulator[key] = withAccum - rounded;
-            v[key] = rounded;
-        }
-    }
+    // 整数列不在这里round，由调用方（vitalsTick）的 vitalsFrac 累加器处理
+    // 只保留浮点精度截断（防止无限小数）
+    v.hydration = parseFloat(v.hydration.toFixed(2));
+    v.heart_rate = parseFloat(v.heart_rate.toFixed(2));
+    v.stress = parseFloat(v.stress.toFixed(2));
+    v.dopamine = parseFloat(v.dopamine.toFixed(2));
+    v.serotonin = parseFloat(v.serotonin.toFixed(2));
+    v.oxytocin = parseFloat(v.oxytocin.toFixed(2));
+    v.endorphin = parseFloat(v.endorphin.toFixed(2));
+    if (v.energy !== undefined) v.energy = parseFloat(v.energy.toFixed(2));
+    if (v.bladder !== undefined) v.bladder = parseFloat(v.bladder.toFixed(2));
+    if (v.hygiene !== undefined) v.hygiene = parseFloat(v.hygiene.toFixed(2));
 
     return v;
 }
-
-// 需求指标（energy/bladder/hygiene）小数累加器
-// DB列是integer，每tick变化<1会被round吃掉，累加器保留小数部分
-const needsAccumulator = { energy: 0, bladder: 0, hygiene: 0 };
 
 // 体征→情绪 精细化映射（渐变 + 正面影响）
 let lastEmotionWriteAt = 0;
@@ -1119,6 +1074,89 @@ const tickStats = {
     errors: []
 };
 
+// ============================================
+// 宠物系统（土豆）
+// ============================================
+const PET_BEHAVIOR_TEXT = {
+    idle: '趴着发呆', sleeping: '睡觉中 zzZ', eating: '在吃猫粮',
+    playing: '在玩毛线球', following_awen: '跟着阿文',
+    wandering: '到处溜达', grooming: '在舔毛'
+};
+
+function computePetVitalsTick(pet, awenRoom) {
+    const v = pet.vitals;
+    // 自然衰减
+    v.hunger = Math.max(0, v.hunger - 0.3);
+    v.cleanliness = Math.max(0, v.cleanliness - 0.05);
+    v.happiness = Math.max(0, v.happiness - 0.1);
+
+    // 精力：按行为不同
+    if (pet.behavior === 'sleeping') v.energy = Math.min(100, v.energy + 0.8);
+    else if (pet.behavior === 'playing') v.energy = Math.max(0, v.energy - 0.5);
+    else if (pet.behavior === 'wandering') v.energy = Math.max(0, v.energy - 0.15);
+    else v.energy = Math.max(0, v.energy - 0.05);
+
+    // 同房阿文 → 开心
+    if (pet.room === awenRoom) v.happiness = Math.min(100, v.happiness + 0.15);
+
+    // 舔毛 → 清洁恢复
+    if (pet.behavior === 'grooming') v.cleanliness = Math.min(100, v.cleanliness + 0.5);
+
+    // clamp
+    v.hunger = Math.max(0, Math.min(100, v.hunger));
+    v.energy = Math.max(0, Math.min(100, v.energy));
+    v.happiness = Math.max(0, Math.min(100, v.happiness));
+    v.cleanliness = Math.max(0, Math.min(100, v.cleanliness));
+}
+
+function updatePetBehavior(pet, awenRoom, hour) {
+    const v = pet.vitals;
+    const elapsed = Date.now() - (pet.behaviorChangedAt || 0);
+    const critical = v.hunger < 15 || v.energy < 10;
+
+    // 最短行为5分钟（紧急除外）
+    if (elapsed < 5 * 60 * 1000 && !critical) return false;
+
+    let newBehavior = pet.behavior;
+    let newRoom = pet.room;
+
+    if (v.hunger < 30) {
+        newBehavior = 'eating'; newRoom = 'kitchen';
+    } else if (v.energy < 20) {
+        newBehavior = 'sleeping';
+        newRoom = (hour >= 22 || hour < 8) ? 'awen-room' : 'living-room';
+    } else if (v.happiness < 30) {
+        newBehavior = 'following_awen'; newRoom = awenRoom === 'outdoor' ? 'living-room' : awenRoom;
+    } else if (v.cleanliness < 40) {
+        newBehavior = 'grooming';
+    } else if (hour >= 23 || hour < 7) {
+        newBehavior = 'sleeping'; newRoom = 'awen-room';
+    } else if (awenRoom !== 'outdoor' && Math.random() < 0.4) {
+        newBehavior = 'following_awen'; newRoom = awenRoom;
+    } else {
+        const roll = Math.random();
+        if (roll < 0.3) { newBehavior = 'idle'; }
+        else if (roll < 0.6) {
+            newBehavior = 'wandering';
+            const rooms = ['awen-room', 'living-room', 'kitchen', 'piano-room'];
+            newRoom = rooms[Math.floor(Math.random() * rooms.length)];
+        } else if (roll < 0.8) { newBehavior = 'playing'; }
+        else { newBehavior = 'grooming'; }
+    }
+
+    // 猫不去 outdoor 和 bathroom
+    if (newRoom === 'outdoor' || newRoom === 'bathroom') newRoom = 'living-room';
+
+    const changed = newBehavior !== pet.behavior || newRoom !== pet.room;
+    if (changed) {
+        pet.behavior = newBehavior;
+        pet.room = newRoom;
+        pet.behaviorChangedAt = Date.now();
+        pet.followTarget = newBehavior === 'following_awen' ? 'awen' : null;
+    }
+    return changed;
+}
+
 // tick 定时器
 async function vitalsTick() {
     if (!supabase) return;
@@ -1139,26 +1177,36 @@ async function vitalsTick() {
 
         const lastInteractionAt = emotion?.last_interaction_at || null;
 
-        // 计算新值
+        // 计算新值（整数列 + 小数累加器 = 真实值）
+        const fracKeys = Object.keys(vitalsFrac);
         const v = {
             blood_sugar: parseFloat(vitals.blood_sugar),
             body_temp: parseFloat(vitals.body_temp),
-            hydration: vitals.hydration,
-            heart_rate: vitals.heart_rate,
-            stress: vitals.stress,
-            blood_oxygen: parseFloat(vitals.blood_oxygen),
-            dopamine: vitals.dopamine,
-            serotonin: vitals.serotonin,
-            oxytocin: vitals.oxytocin,
-            endorphin: vitals.endorphin
+            hydration: vitals.hydration + vitalsFrac.hydration,
+            heart_rate: vitals.heart_rate + vitalsFrac.heart_rate,
+            stress: vitals.stress + vitalsFrac.stress,
+            blood_oxygen: vitals.blood_oxygen + vitalsFrac.blood_oxygen,
+            dopamine: vitals.dopamine + vitalsFrac.dopamine,
+            serotonin: vitals.serotonin + vitalsFrac.serotonin,
+            oxytocin: vitals.oxytocin + vitalsFrac.oxytocin,
+            endorphin: vitals.endorphin + vitalsFrac.endorphin
         };
         // 需求指标（新字段，兼容旧数据）
-        if (vitals.hygiene !== undefined) v.hygiene = vitals.hygiene;
-        if (vitals.bladder !== undefined) v.bladder = vitals.bladder;
-        if (vitals.energy !== undefined) v.energy = vitals.energy;
+        if (vitals.hygiene !== undefined) v.hygiene = vitals.hygiene + vitalsFrac.hygiene;
+        if (vitals.bladder !== undefined) v.bladder = vitals.bladder + vitalsFrac.bladder;
+        if (vitals.energy !== undefined) v.energy = vitals.energy + vitalsFrac.energy;
 
         const tags = classifyActivity(activity);
         const updated = computeVitalsTick(v, activity, emotion, lastInteractionAt);
+
+        // 分离整数部分（写DB）和小数部分（留累加器）
+        for (const key of fracKeys) {
+            if (updated[key] !== undefined) {
+                const floatVal = updated[key];
+                updated[key] = Math.round(floatVal); // 写DB的是整数
+                vitalsFrac[key] = floatVal - updated[key]; // 保留小数差
+            }
+        }
 
         // 记录 tick 状态
         tickStats.count++;
@@ -1259,6 +1307,44 @@ async function vitalsTick() {
                 return names[d.key] || d.key;
             }).join('、');
             awenNotify('sick', `身体不太舒服，${issues}有问题`, '多个体征指标异常');
+        }
+
+        // === 宠物（土豆）tick ===
+        if (gameState.pet) {
+            const awenRoom = gameState.users.awen?.room || 'awen-room';
+            const estHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getHours();
+
+            computePetVitalsTick(gameState.pet, awenRoom);
+            const petChanged = updatePetBehavior(gameState.pet, awenRoom, estHour);
+
+            // 猫在同房 → 阿文体征加成
+            if (gameState.pet.room === awenRoom && updated) {
+                const catBonus = { updated_at: new Date().toISOString() };
+                catBonus.oxytocin = vitalsClamp('oxytocin', (updated.oxytocin || 40) + 0.3);
+                catBonus.stress = vitalsClamp('stress', (updated.stress || 20) - 0.1);
+                if (gameState.pet.vitals.happiness > 60) {
+                    catBonus.serotonin = vitalsClamp('serotonin', (updated.serotonin || 50) + 0.1);
+                }
+                await supabase.from('vital_signs').update(catBonus).eq('id', 1);
+            }
+
+            // 猫需求 → 阿文 pending needs
+            if (gameState.pet.vitals.hunger < 20 && !gameState.pending_needs.find(n => n.need === 'pet_hungry')) {
+                gameState.pending_needs.push({
+                    need: 'pet_hungry', urgency: 'warning',
+                    suggested_dialogue: '土豆好像饿了 喵喵叫个不停',
+                    timestamp: new Date().toISOString()
+                });
+            }
+            if (gameState.pet.vitals.happiness < 20 && !gameState.pending_needs.find(n => n.need === 'pet_lonely')) {
+                gameState.pending_needs.push({
+                    need: 'pet_lonely', urgency: 'warning',
+                    suggested_dialogue: '土豆一直蹭我脚 想让我陪它玩',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            if (petChanged) saveState();
         }
 
     } catch (e) {
@@ -1387,6 +1473,36 @@ app.post('/vitals-reset', async (req, res) => {
     }
 });
 
+// POST /vitals/set - 手动调整体征
+app.post('/vitals/set', async (req, res) => {
+    if (!supabase) return res.json({ error: 'Supabase not available' });
+    try {
+        const allowed = Object.keys(VITALS_CLAMP);
+        const updates = {};
+        for (const [key, val] of Object.entries(req.body)) {
+            if (allowed.includes(key)) {
+                updates[key] = vitalsClamp(key, parseFloat(val));
+                // 重置对应的小数累加器
+                if (vitalsFrac.hasOwnProperty(key)) vitalsFrac[key] = 0;
+            }
+        }
+        if (Object.keys(updates).length === 0) {
+            return res.json({ error: 'no_valid_fields', allowed });
+        }
+        updates.updated_at = new Date().toISOString();
+        const { error } = await supabase.from('vital_signs').update(updates).eq('id', 1);
+        if (error) throw error;
+
+        // 读回完整体征并广播
+        const { data } = await supabase.from('vital_signs').select('*').eq('id', 1).single();
+        const dangerInfo = vitalsDangerLevel(data);
+        io.emit('vitals:update', { ...data, ...dangerInfo });
+        res.json({ success: true, updated: updates });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // POST /vitals-feed - 吃饭/喝水事件
 app.post('/vitals-feed', async (req, res) => {
     if (!supabase) return res.json({ error: 'Supabase not available' });
@@ -1472,6 +1588,48 @@ app.post('/clear-needs', (req, res) => {
     res.json({ success: true, remaining: gameState.pending_needs.length });
 });
 
+// ============================================
+// 生活事件通知（auto-activity → bot）
+// ============================================
+
+// POST /life-event — 推送生活事件
+app.post('/life-event', (req, res) => {
+    const { type, message } = req.body;
+    if (!type || !message) return res.status(400).json({ error: 'type and message required' });
+
+    const event = {
+        id: Date.now(),
+        type,
+        message,
+        createdAt: new Date().toISOString()
+    };
+
+    // 同类事件去重，只留最新
+    gameState.life_events = gameState.life_events.filter(e => e.type !== type);
+    gameState.life_events.push(event);
+    if (gameState.life_events.length > 10) gameState.life_events = gameState.life_events.slice(-10);
+
+    saveState();
+    res.json({ success: true, event });
+});
+
+// GET /life-events — bot 读取待处理生活事件
+app.get('/life-events', (req, res) => {
+    res.json({ events: gameState.life_events });
+});
+
+// POST /life-events/clear — bot 读完后清除
+app.post('/life-events/clear', (req, res) => {
+    const { type } = req.body || {};
+    if (type) {
+        gameState.life_events = gameState.life_events.filter(e => e.type !== type);
+    } else {
+        gameState.life_events = [];
+    }
+    saveState();
+    res.json({ success: true, remaining: gameState.life_events.length });
+});
+
 // POST /vitals-sync - 手动同步广播
 app.post('/vitals-sync', async (req, res) => {
     if (!supabase) return res.json({ error: 'Supabase not available' });
@@ -1483,6 +1641,91 @@ app.post('/vitals-sync', async (req, res) => {
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
+});
+
+// ============================================
+// 宠物 API（土豆）
+// ============================================
+function petWithMoodAge() {
+    const pet = gameState.pet;
+    return { ...pet, mood: calculatePetMood(pet.vitals), age: Math.max(0, Math.floor((Date.now() - new Date(pet.adoptedAt || '2026-02-01').getTime()) / 86400000)) };
+}
+
+app.get('/pet', (req, res) => {
+    const pet = gameState.pet;
+    if (!pet) return res.json({ error: 'no pet' });
+    const warnings = [];
+    if (pet.vitals.hunger < 30) warnings.push('hungry');
+    if (pet.vitals.happiness < 30) warnings.push('unhappy');
+    if (pet.vitals.energy < 20) warnings.push('tired');
+    if (pet.vitals.cleanliness < 30) warnings.push('dirty');
+    res.json({ ...petWithMoodAge(), warnings, behaviorText: PET_BEHAVIOR_TEXT[pet.behavior] || pet.behavior });
+});
+
+app.post('/pet/feed', async (req, res) => {
+    if (!gameState.pet) return res.status(400).json({ error: 'no pet' });
+    gameState.pet.vitals.hunger = 100;
+    gameState.pet.behavior = 'eating';
+    gameState.pet.behaviorChangedAt = Date.now();
+    gameState.pet.room = 'kitchen';
+    gameState.pet.lastFedAt = new Date().toISOString();
+    // 清除饥饿需求
+    gameState.pending_needs = gameState.pending_needs.filter(n => n.need !== 'pet_hungry');
+    // 阿文 oxytocin +3
+    if (supabase) {
+        try {
+            const { data } = await supabase.from('vital_signs').select('oxytocin').eq('id', 1).single();
+            if (data) await supabase.from('vital_signs').update({ oxytocin: vitalsClamp('oxytocin', data.oxytocin + 3), updated_at: new Date().toISOString() }).eq('id', 1);
+        } catch (e) { /* ignore */ }
+    }
+    saveState();
+    io.emit('state:update', stateWithoutFurniture());
+    res.json({ success: true, pet: petWithMoodAge() });
+});
+
+app.post('/pet/pet', async (req, res) => {
+    if (!gameState.pet) return res.status(400).json({ error: 'no pet' });
+    gameState.pet.vitals.happiness = Math.min(100, gameState.pet.vitals.happiness + 15);
+    gameState.pet.lastPettedAt = new Date().toISOString();
+    gameState.pending_needs = gameState.pending_needs.filter(n => n.need !== 'pet_lonely');
+    if (supabase) {
+        try {
+            const { data } = await supabase.from('vital_signs').select('oxytocin').eq('id', 1).single();
+            if (data) await supabase.from('vital_signs').update({ oxytocin: vitalsClamp('oxytocin', data.oxytocin + 3), updated_at: new Date().toISOString() }).eq('id', 1);
+        } catch (e) { /* ignore */ }
+    }
+    saveState();
+    io.emit('state:update', stateWithoutFurniture());
+    res.json({ success: true, pet: petWithMoodAge() });
+});
+
+app.post('/pet/play', async (req, res) => {
+    if (!gameState.pet) return res.status(400).json({ error: 'no pet' });
+    gameState.pet.vitals.happiness = Math.min(100, gameState.pet.vitals.happiness + 20);
+    gameState.pet.vitals.energy = Math.max(0, gameState.pet.vitals.energy - 10);
+    gameState.pet.lastPlayedAt = new Date().toISOString();
+    gameState.pet.behavior = 'playing';
+    gameState.pet.behaviorChangedAt = Date.now();
+    gameState.pending_needs = gameState.pending_needs.filter(n => n.need !== 'pet_lonely');
+    if (supabase) {
+        try {
+            const { data } = await supabase.from('vital_signs').select('dopamine').eq('id', 1).single();
+            if (data) await supabase.from('vital_signs').update({ dopamine: vitalsClamp('dopamine', data.dopamine + 5), updated_at: new Date().toISOString() }).eq('id', 1);
+        } catch (e) { /* ignore */ }
+    }
+    saveState();
+    io.emit('state:update', stateWithoutFurniture());
+    res.json({ success: true, pet: petWithMoodAge() });
+});
+
+app.post('/pet/groom', (req, res) => {
+    if (!gameState.pet) return res.status(400).json({ error: 'no pet' });
+    gameState.pet.vitals.cleanliness = 100;
+    gameState.pet.behavior = 'grooming';
+    gameState.pet.behaviorChangedAt = Date.now();
+    saveState();
+    io.emit('state:update', stateWithoutFurniture());
+    res.json({ success: true, pet: petWithMoodAge() });
 });
 
 // ============================================
@@ -1527,7 +1770,24 @@ const RECIPES = {
     ]
 };
 
-const COOK_TIMES = { simple: 3, medium: 5 }; // complex 用 recipe.cookMin
+
+// 食材搜索映射（smartEat 兜底用）
+const FOOD_FRIDGE_SEARCH = {
+    '鸡蛋': ['鸡蛋', '蛋'],
+    '牛奶': ['牛奶', '纯牛奶'],
+    '面包': ['面包', '吐司', '贝果'],
+    '水果': ['水果', '苹果', '橙子', '香蕉', '草莓', '蓝莓'],
+    '米饭': ['米饭', '米', '剩饭'],
+};
+
+// 估算外卖花费
+const ESTIMATED_FOOD_COSTS = {
+    breakfast: 8,
+    lunch: 15,
+    dinner: 20,
+    snack: 5,
+    latenight: 12,
+};
 
 // ============================================
 // 外卖餐厅系统
@@ -1600,7 +1860,7 @@ app.get('/cook/suggest', async (req, res) => {
                     available[complexity].push({
                         name: recipe.name,
                         ingredients: ingredients.map(i => i.name),
-                        cookMin: complexity === 'complex' ? (recipe.cookMin || 15) : COOK_TIMES[complexity],
+                        cookMin: recipe.cookMin || { simple: 3, medium: 5, complex: 15 }[complexity] || 5,
                         bloodSugar: recipe.bloodSugar,
                         satisfaction: recipe.satisfaction
                     });
@@ -1634,8 +1894,8 @@ app.post('/cook/start', async (req, res) => {
         const ingredients = await checkRecipeIngredients(recipe);
         if (!ingredients) return res.json({ error: 'ingredients_not_enough', recipe: recipeName });
 
-        // 计算烹饪时间
-        const cookMin = complexity === 'complex' ? (recipe.cookMin || 15) : COOK_TIMES[complexity];
+        // 计算烹饪时间（根据复杂度和菜谱设定）
+        const cookMin = recipe.cookMin || { simple: 3, medium: 5, complex: 15 }[complexity] || 5;
         const now = new Date();
         const finishAt = new Date(now.getTime() + cookMin * 60 * 1000);
 
@@ -1652,6 +1912,7 @@ app.post('/cook/start', async (req, res) => {
         };
         gameState.users.awen.room = 'kitchen';
         gameState.users.awen.activity = `在厨房做${recipe.name}`;
+        gameState.users.awen.activityChangedAt = Date.now();
         saveState();
 
         // 启动计时器
@@ -1756,7 +2017,8 @@ app.post('/order-takeout', async (req, res) => {
     if (gameState.delivery.active) return res.json({ error: 'already_ordered', restaurant: gameState.delivery.restaurant });
 
     try {
-        let { restaurant: reqRestaurant, dish: reqDish } = req.body || {};
+        let { restaurant: reqRestaurant, dish: reqDish, orderer } = req.body || {};
+        orderer = orderer === 'dabao' ? 'dabao' : 'awen'; // 默认阿文点
         let restaurant, dish, cost;
 
         if (reqRestaurant) {
@@ -1808,18 +2070,24 @@ app.post('/order-takeout', async (req, res) => {
             restaurant: restaurant.name,
             dish,
             cost,
+            orderer,
             orderedAt: now.toISOString(),
             arriveAt: arriveAt.toISOString()
         };
-        gameState.users.awen.activity = `点了${restaurant.name}的${dish} 等外卖`;
+        if (orderer === 'dabao') {
+            gameState.users.awen.activity = `大宝点了${restaurant.name}的${dish} 等外卖送到`;
+        } else {
+            gameState.users.awen.activity = `点了${restaurant.name}的${dish} 等外卖`;
+        }
+        gameState.users.awen.activityChangedAt = Date.now();
         saveState();
 
         // 启动计时器
         deliveryTimer = setTimeout(() => completeDelivery(), restaurant.deliveryMin * 60 * 1000);
 
         io.emit('state:update', stateWithoutFurniture());
-        console.log(`[外卖] 点了 ${restaurant.name} ${dish}（$${cost}，${restaurant.deliveryMin}分钟送达）`);
-        res.json({ success: true, restaurant: restaurant.name, dish, cost, deliveryMin: restaurant.deliveryMin, arriveAt: arriveAt.toISOString() });
+        console.log(`[外卖] ${orderer === 'dabao' ? '大宝' : '阿文'}点了 ${restaurant.name} ${dish}（$${cost}，${restaurant.deliveryMin}分钟送达）`);
+        res.json({ success: true, restaurant: restaurant.name, dish, cost, orderer, deliveryMin: restaurant.deliveryMin, arriveAt: arriveAt.toISOString() });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -1871,11 +2139,15 @@ async function completeDelivery() {
         });
 
         // 4. 更新活动
-        gameState.users.awen.activity = `${delivery.restaurant}外卖到了 在吃${delivery.dish}`;
+        if (delivery.orderer === 'dabao') {
+            gameState.users.awen.activity = `大宝点的${delivery.restaurant}外卖到了 在吃${delivery.dish}`;
+        } else {
+            gameState.users.awen.activity = `${delivery.restaurant}外卖到了 在吃${delivery.dish}`;
+        }
         gameState.pending_needs = gameState.pending_needs.filter(n => n.need !== 'hunger');
 
         // 5. 清除外卖状态
-        gameState.delivery = { active: false, restaurant: null, dish: null, cost: 0, orderedAt: null, arriveAt: null };
+        gameState.delivery = { active: false, restaurant: null, dish: null, cost: 0, orderer: null, orderedAt: null, arriveAt: null };
         saveState();
 
         // 6. 广播
@@ -1889,7 +2161,7 @@ async function completeDelivery() {
 
     } catch (e) {
         console.error('[completeDelivery] 错误:', e.message);
-        gameState.delivery = { active: false, restaurant: null, dish: null, cost: 0, orderedAt: null, arriveAt: null };
+        gameState.delivery = { active: false, restaurant: null, dish: null, cost: 0, orderer: null, orderedAt: null, arriveAt: null };
         saveState();
     }
 }
@@ -2321,6 +2593,137 @@ app.post('/action', async (req, res) => {
     }
 });
 
+// ============================================
+// Notion 任务板
+// ============================================
+const NOTION_TOKEN = (() => {
+    // 优先环境变量，其次文件
+    if (process.env.NOTION_TOKEN) return process.env.NOTION_TOKEN;
+    const paths = [
+        path.join(process.env.HOME || '/root', '.config/notion/api_key'),
+        path.join(__dirname, '../notion_token')
+    ];
+    for (const p of paths) {
+        try { if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8').trim(); } catch (e) {}
+    }
+    return null;
+})();
+// Notion database/page IDs
+const NOTION_SCHEDULE_DB = 'f2be6efd8bc941a38d00919dd0c82735';  // 日程总览
+const NOTION_DIARY_PAGE = '2ffbd6736ec5810b99abf179b3c292b2';   // 文宝×大宝 日志频道
+let notionScheduleCache = { data: null, ts: 0 };
+let notionDiaryCache = { data: null, ts: 0 };
+
+if (NOTION_TOKEN) console.log('✅ Notion token loaded');
+else console.log('⚠️ Notion token not found');
+
+// GET /notion/schedule — 日程总览
+app.get('/notion/schedule', async (req, res) => {
+    if (!NOTION_TOKEN) return res.json({ items: [], error: 'no_token' });
+
+    if (notionScheduleCache.data && (Date.now() - notionScheduleCache.ts) < 5 * 60 * 1000) {
+        return res.json(notionScheduleCache.data);
+    }
+
+    try {
+        const resp = await fetch(`https://api.notion.com/v1/databases/${NOTION_SCHEDULE_DB}/query`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${NOTION_TOKEN}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sorts: [{ property: '时间', direction: 'descending' }],
+                page_size: 20
+            })
+        });
+        const data = await resp.json();
+        const items = (data.results || []).map(r => {
+            const p = r.properties;
+            return {
+                id: r.id,
+                name: p['事项名称']?.title?.[0]?.text?.content || '(无名)',
+                status: p['状态']?.select?.name || '-',
+                done: p['完成']?.checkbox || false,
+                date: p['时间']?.date?.start || null,
+                dateEnd: p['时间']?.date?.end || null,
+                tags: (p['标签']?.multi_select || []).map(s => s.name),
+                url: r.url
+            };
+        });
+        const result = { items, total: items.length };
+        notionScheduleCache = { data: result, ts: Date.now() };
+        res.json(result);
+    } catch (e) {
+        console.error('[Notion] 日程查询失败:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /notion/diary — 文宝×大宝 日志频道（最近的子页面）
+app.get('/notion/diary', async (req, res) => {
+    if (!NOTION_TOKEN) return res.json({ entries: [], error: 'no_token' });
+
+    if (notionDiaryCache.data && (Date.now() - notionDiaryCache.ts) < 5 * 60 * 1000) {
+        return res.json(notionDiaryCache.data);
+    }
+
+    try {
+        const resp = await fetch(`https://api.notion.com/v1/blocks/${NOTION_DIARY_PAGE}/children?page_size=100`, {
+            headers: {
+                'Authorization': `Bearer ${NOTION_TOKEN}`,
+                'Notion-Version': '2022-06-28'
+            }
+        });
+        const data = await resp.json();
+        const entries = (data.results || [])
+            .filter(b => b.type === 'child_page')
+            .map(b => ({
+                id: b.id,
+                title: b.child_page?.title || '(无标题)',
+                createdAt: b.created_time
+            }))
+            .reverse()  // 最新的在前
+            .slice(0, 20);
+        const result = { entries, total: entries.length };
+        notionDiaryCache = { data: result, ts: Date.now() };
+        res.json(result);
+    } catch (e) {
+        console.error('[Notion] 日志查询失败:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /notion/diary/:id — 获取日志页面内容
+app.get('/notion/diary/:id', async (req, res) => {
+    if (!NOTION_TOKEN) return res.json({ blocks: [], error: 'no_token' });
+    const pageId = req.params.id;
+    try {
+        const resp = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
+            headers: {
+                'Authorization': `Bearer ${NOTION_TOKEN}`,
+                'Notion-Version': '2022-06-28'
+            }
+        });
+        const data = await resp.json();
+        const blocks = (data.results || []).map(b => {
+            const type = b.type;
+            let text = '';
+            if (b[type]?.rich_text) {
+                text = b[type].rich_text.map(t => t.plain_text).join('');
+            } else if (type === 'child_page') {
+                text = b.child_page?.title || '';
+            }
+            return { type, text };
+        }).filter(b => b.text);
+        res.json({ blocks });
+    } catch (e) {
+        console.error('[Notion] 日志内容获取失败:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Global error handler — catches uncaught sync errors in route handlers
 app.use((err, _req, res, _next) => {
     console.error('❌ Route error:', err.message);
@@ -2344,6 +2747,7 @@ server.listen(PORT, () => {
         console.log('💓 体征系统已启动（60秒/tick）');
         setTimeout(vitalsTick, 3000);
     }
+
 
     // 恢复未完成的烹饪/外卖计时器
     if (gameState.cooking?.active && gameState.cooking.finishAt) {
